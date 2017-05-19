@@ -1,6 +1,36 @@
+<!--
+Copyright 2017 FileThis, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+
 <link rel="import" href="../polymer/polymer.html">
 
 <link rel="import" href="../iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../paper-toolbar/paper-toolbar.html">
+<link rel="import" href="../iron-image/iron-image.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../iron-pages/iron-pages.html">
+
+<link rel="import" href="../ft-document-panel/ft-document-panel.html">
+<link rel="import" href="../ft-source-panel/ft-source-panel.html">
+<link rel="import" href="../ft-connections-panel/ft-connections-panel.html">
+<link rel="import" href="../ft-user-interaction-form/ft-user-interaction-form.html">
+<link rel="import" href="../ft-error-behavior/ft-error-behavior.html">
+<link rel="import" href="../ft-http-behavior/ft-http-behavior.html">
 
 <!--
 `ft-connect`
@@ -13,20 +43,1294 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
     <style include="iron-flex iron-flex-alignment"></style>
 
+    <style is="custom-style">
+        paper-checkbox.white {
+          --paper-checkbox-checked-color: white;
+          --paper-checkbox-checked-ink-color: white;
+          --paper-checkbox-unchecked-color: white;
+          --paper-checkbox-unchecked-ink-color: white;
+          --paper-checkbox-label-color: white;
+        }
+    </style>
+
     <template>
 
-        <div>
-            ft-connect
+        <div class="layout vertical">
+
+            <!-- Header bar -->
+            <paper-toolbar>
+
+                <!-- Company Logo -->
+                <iron-image
+                        style="width:100px; height:100px;"
+                        sizing="contain"
+                        src="acme-logo.png">
+                </iron-image>
+
+                <!-- Company Name -->
+                <span class="title" id="logo">Acme, Inc.</span>
+
+                <!-- Panel Tabs -->
+                <paper-tabs id="panelTabs" selected="{{_selectedTabIndex}}" style="font-size:16pt;">
+                    <paper-tab id="sourcesPanelTab">Sources</paper-tab>
+                    <paper-tab id="connectionsPanelTab">Connections</paper-tab>
+                    <paper-tab id="documentsPanelTab">Documents</paper-tab>
+                </paper-tabs>
+
+                <div class="flex"></div>
+
+            </paper-toolbar>
+
+            <!-- Panels -->
+            <iron-pages id="panels" style="width:100%; height:100%;" selected="{{_selectedTabIndex}}">
+                <ft-document-panel id="documentPanel"
+                                 style="width:200px;height:200px;"
+                                 documents="[[documents]]">
+                </ft-document-panel>
+                <ft-source-panel id="sourcePanel"
+                                 style="width:200px;height:200px"
+                                 sources="[[sources]]">
+                </ft-source-panel>
+                <ft-connections-panel id="connectionsPanel"
+                                      connections="[[connections]]"
+                                      sources="[[sources]]">
+                </ft-connections-panel>
+            </iron-pages>
+
         </div>
 
+        <!-- User interaction dialog -->
+        <paper-dialog modal id="modalInteractionDialog",
+                      style="width:450px;
+                      padding-left:40px; padding-top:12px; padding-right:40px; padding-bottom:5px;">
+
+            <ft-user-interaction-form
+                    id="interactionForm"
+                    version="[[interactionVersion]]"
+                    request="[[_interactionRequest]]"
+                    response="{{_interactionResponse}}"
+                    on-submit-response="_onSubmitInteractionResponse"
+                    on-button-clicked="_onInteractionFormButtonClicked"
+                    style="background:white; border:1px solid #DDD;">
+            </ft-user-interaction-form>
+
+        </paper-dialog>
+
+        <!-- Uploader -->
+        <input id="uploader" type="file" on-change="_onUploaderFilesChanged" multiple="true" accept="[[_uploadableFileTypes]]" hidden>
+
     </template>
+
+    <script type="text/javascript" src="../log4javascript/log4javascript.js"></script>
+    <script type="text/javascript">
+        var log = log4javascript.getDefaultLogger();
+    </script>
 
     <script>
         Polymer({
 
             is: 'ft-connect',
 
+            // TODO: When ticket is injected, set the httpHeaders:
+            //    this.httpHeaders = [ {name:"X-FileThis-Session", value:this.ticket}];
+
+            behaviors: [FtErrorBehavior, FtHttpBehavior],
+
+            listeners:
+            {
+                'commit': '_onCommit',
+                'download': '_onDownload',
+                'upload': '_onUpload',
+                'delete': '_onDelete',
+                'action-button-clicked': '_onActionButtonClicked'
+            },
+
             properties: {
+
+                /** The "base" URL for requests. For example: "https://filethis.com". Note that you should not use a trailing slash. */
+                server:
+                {
+                    type: String,
+                    value: "",
+                    observer: "_onServerChanged"
+                },
+//                server:
+//                {
+//                    type: String,
+//                    value: "https://filethis.com",
+//                    observer: "_onSettingsChanged"
+//                },
+
+                /** The user's FileThis account id. */
+                userAccountId: {
+                    type: String,
+                    value: "",
+                    observer: "_onUserAccountIdChanged"
+                },
+//                userAccountId: {
+//                    type: String,
+//                    value: "",
+//                    observer: "_onSettingsChanged"
+//                },
+
+                /** The end-user FileThis ticket. Used to authenticate and authorize requests to the FileThis API endpoints. */
+                ticket:
+                {
+                    type: String,
+                    value: "",
+                    observer: "_onTicketChanged"
+                },
+//                ticket:
+//                {
+//                    type: String,
+//                    value: "",
+//                    observer: "_onSettingsChanged"
+//                },
+
+                /** The path under the baseUrl used for API requests. For example: "/api/v1". Note that you should use a leading slash, and no trailing slash. */
+                apiPath:
+                {
+                    type: String,
+                    value: "/api/v1"
+                },
+//                apiPath:
+//                {
+//                    type: String,
+//                    value: "/api/v1",
+//                    observer: "_onSettingsChanged"
+//                },
+
+                /** True when all the settings are set: server, userAccountId, ticket, and apiPath */
+                isLive:
+                {
+                    type: Boolean,
+                    notify: true,
+                    value: false,
+                    observer: "_onIsLiveChanged"
+                },
+
+                _account:
+                {
+                    type: Object,
+                    notify: true,
+                    value: null
+                },
+
+                _sources:
+                {
+                    type: Array,
+                    notify: true,
+                    value: []
+                },
+
+                _connections:
+                {
+                    type: Array,
+                    notify: true,
+                    value: []
+                },
+
+                _documents:
+                {
+                    type: Array,
+                    notify: true,
+                    value: []
+                },
+
+                /** Version of user interaction schema to use. */
+                interactionVersion:
+                {
+                    type: Object,  // JSON
+                    notify: true,
+                    value: "1.0.0"
+                },
+
+                _interactionRequests:
+                {
+                    type: Array,
+                    notify: true,
+                    value: [],
+                    observer: "_onInteractionRequestsChanged"
+                },
+
+                /** When true, user interaction requests are posed to the user automatically, within this component. If you want control over when and by whom the request is posed to the user, set this false. You can then listen for xxxxx events emitted by this component and respond either by getting the request(s) from the "interactionRequests" property and posing the dialog yourself, outside this component, or responding by calling this component's poseNextPendingInteractionRequest() method to pose the dialog inside the component. */
+                poseUserInteractionsAutomatically:
+                {
+                    type: Boolean,
+                    notify: true,
+                    value: true
+                },
+
+                _selectedManagerPanelTabIndex:
+                {
+                    type: Number,
+                    notify: true,
+                    value: "0"
+                },
+
+                _selectedMainTabIndex:
+                {
+                    type: Number,
+                    notify: true,
+                    value: "0"
+                },
+
+                _selectedTabIndex:
+                {
+                    type: Number,
+                    notify: true,
+                    value: "0"
+                },
+                
+                _uploadableFileTypes:
+                {
+                    type: String,
+                    notify: true,
+                    value: "application/pdf"
+                },
+
+                _interactionRequest:
+                {
+                    type: Object,
+                    notify: true
+                },
+
+                _interactionResponse:
+                {
+                    type: Object,
+                    notify: true
+                },
+
+                // TODO: Remove once polling is done
+                pollForChangeNotifications:
+                {
+                    type: Boolean,
+                    notify: true,
+                    value: true
+                }
+            },
+
+            _onServerChanged: function()
+            {
+                var theServer = this.server;
+            },
+
+            _onUserAccountIdChanged: function()
+            {
+                var theUserAccountId = this.userAccountId;
+            },
+
+            _onTicketChanged: function()
+            {
+                var theTicket = this.ticket;
+            },
+
+
+
+            // Application data members ------------------------------------------------------------------
+
+            // Note: These are effectively "static" class variables, not instance variables. We can get away with this
+            // because we only ever instantiate one application object. We like not having these in the Polymer instance
+            // properties above where they would pollute that context (which they would do even if they were "private").
+
+            _lastChangeNotificationHandledTimestamp: new Date("2022-01-01"),  // The far future
+
+            // Connection changes
+            _createdConnections: {},
+            _deletedConnections: {},
+            _updatedConnections: {},
+            _updatedConnectionStateProperties: {},
+            _updatedConnectionValidationProperties: {},
+
+            // User interaction request changes
+            _createdInteractionRequests: {},
+            _deletedInteractionRequests: {},
+
+
+            ready: function()
+            {
+//                setInterval(this._changeNotificationPoller.bind(this), 2000);  // Poll for change notifications every two seconds
+            },
+
+            _onSettingsChanged: function()
+            {
+                this._checkCanGoLive();
+//                this.isLive = this._checkCanGoLive();
+            },
+
+            _checkCanGoLive: function()
+            {
+                if (!this.server)
+                    return false;
+                if (!this.userAccountId)
+                    return false;
+                if (!this.ticket)
+                    return false;
+                if (!this.apiPath)
+                    return false;
+                return true;
+            },
+
+            _onIsLiveChanged: function()
+            {
+                if (this.isLive)
+                    this._getAllData();
+
+                if (this.isLive)
+                    this.$.logo.innerHTML = "Live";
+                else
+                    this.$.logo.innerHTML = "Dead";
+            },
+
+            _changeNotificationPoller: function()
+            {
+                if (this.pollForChangeNotifications)
+                    this._processChangeNotifications();
+            },
+
+            _onInteractionRequestsChanged: function()
+            {
+                if (this._interactionRequests.length == 0)
+                    return;
+
+                // TODO: Do we only want to do this when we just got a notification that one was created?
+                this._poseNextPendingInteractionRequest();
+            },
+
+            // User action event handling --------------------------------------------------------------------------
+
+            _onCommit: function(event)
+            {
+                var target = event.target;
+                if (target.id == "createConnectionDialog")
+                {
+                    var createConnectionDialog = target;
+                    var source = event.detail;
+                    this._createConnection(createConnectionDialog.username, createConnectionDialog.password, source);
+                }
+            },
+
+            _onDownload: function(event)
+            {
+                var target = event.target;
+                if (target.id == "documentPanel")
+                {
+                    var document = event.detail;
+                    this._downloadDocument(document);
+                }
+            },
+
+            _downloadDocument: function(document)
+            {
+                alert("Downloads coming soon!");
+
+                // See DownloadCommand.as, beginDownload()
+            },
+
+            _onUpload: function(event)
+            {
+                var target = event.target;
+                if (target.id == "documentPanel")
+                    this._chooseFilesToUpload();
+            },
+
+            _chooseFilesToUpload: function()
+            {
+                // Simulate a mouse click on our hidden "uploader" element to make it prompt the user to choose files.
+                // If the user does so, the uploader will emit an event that we handle with _onUploaderFilesChanged().
+                var clickEvent = document.createEvent('MouseEvents');
+                clickEvent.initEvent('click', true, false);
+                var uploader = this.$.uploader;
+                uploader.dispatchEvent(clickEvent);
+            },
+
+            _onUploaderFilesChanged: function(event)
+            {
+                // Turn the given FileList into a proper array
+                var filesAsArray = [];
+                var files = event.target.files;
+                var count = files.length;
+                for (var index = 0; index < count; index++)
+                {
+                    var file = files[index];
+                    filesAsArray.push(file);
+                }
+
+                this._uploadFiles(filesAsArray);
+            },
+
+            _uploadFiles: function(files)
+            {
+                // TODO: What we really want here is some nice progress feedback for the user
+
+                var uploads = files.map(this._uploadFile.bind(this));
+
+                return Promise.all(uploads)
+                    .catch(function(reason)
+                    {
+                        this.handleCaughtError(reason);
+
+                        // TODO: Display something to the user and suggest what they ought to do
+                    }.bind(this));
+            },
+
+            _uploadFile: function(file)
+            {
+                var url = this.server +
+                    "/?op=upload" +
+                    "&filename=" + file.name;
+                return this._httpPost(url, file);  // TODO: What about the file type?
+            },
+
+            _onDelete: function(event)
+            {
+                var target = event.target;
+                if (target.id == "documentPanel")
+                {
+                    var document = event.detail;
+                    this._deleteDocument(document);
+                }
+                if (target.id == "connectionsPanel")
+                {
+                    var connection = event.detail;
+                    this._deleteConnection(connection);
+                }
+            },
+
+            _onActionButtonClicked: function(event)
+            {
+                var connection = event.detail;
+                this._handleConnectionAction(connection);
+            },
+
+            _onInteractionFormButtonClicked: function(event)
+            {
+                var detail = event.detail;
+                if (detail.action == "defer")
+                    this.$.modalInteractionDialog.close();
+            },
+
+            _onSubmitInteractionResponse: function(event)
+            {
+                var interactionRequest = this._interactionRequest;
+                var interactionResponse = this._interactionResponse;
+
+                var connectionId = interactionRequest.connectionId;
+                var interactionId = interactionRequest.id;
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections/" + connectionId +
+                    "/interactions/" + interactionId +
+                    "/response";
+
+                return this._httpPut(url, interactionResponse)
+                    .then(function()
+                    {
+                        this.$.modalInteractionDialog.close();
+                    }.bind(this))
+                    .catch(function(reason)
+                    {
+                        this.handleCaughtError(reason);
+                        this.$.modalInteractionDialog.close();
+                    }.bind(this));
+            },
+
+//            _onSubmitInteractionResponseNew: function(event)
+//            {
+//                var interactionRequest = this._interactionRequest;
+//                var interactionResponse = this._interactionResponse;
+//
+//                var connectionId = interactionRequest.connectionId;
+//                var interactionId = interactionRequest.id;
+//                var url = this.server + this.apiPath +
+//                    "/accounts/" + this._account.id +
+//                    "/connections/" + connectionId +
+//                    "/interactions/" + interactionId +
+//                    "/response";
+//
+//                return this._httpPost(url, interactionResponse)
+//                    .then(function()
+//                    {
+//                        this.$.modalInteractionDialog.close();
+//                    }.bind(this))
+//                    .catch(function(reason)
+//                    {
+//                        this.handleCaughtError(reason);
+//                        this.$.modalInteractionDialog.close();
+//                    }.bind(this));
+//            },
+
+            // TODO: Move this
+            _handleConnectionAction: function(connection)
+            {
+                switch (connection.state)
+                {
+                    case "waiting":
+                        this._startManualFetch(connection);
+                        break;
+
+                    case "connecting":
+                        break;
+
+                    case "uploading":
+                        break;
+
+                    case "question":
+                        this._poseInteractionForConnection(connection);
+                        break;
+
+                    case "error":
+                        break;
+
+                    default:
+                        break;
+                }
+            },
+
+            _startManualFetch: function(connection)
+            {
+                // TODO: Shouldn't we disable the fetch button to prevent double-clicking?
+
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections/" + connection.id +
+                    "/fetch";
+
+                return this._httpPost(url);
+            },
+
+            _poseInteractionForConnection: function(connection)
+            {
+                var count = this._interactionRequests.length;
+                if (count == 0)
+                    return;
+
+                // If we already have a dialog posed
+                if (this.$.modalInteractionDialog.opened)
+                {
+                    log.info("There is already a use interaction request dialog posed");
+                    return;
+                }
+
+                var connectionId = connection.id;
+
+                var interactionRequestForConnection = null;
+                for (var index = 0; index < count; index++)
+                {
+                    var interactionRequest = this._interactionRequests[index];
+                    if (interactionRequest.connectionId == connectionId)
+                    {
+                        interactionRequestForConnection = interactionRequest;
+                        break;
+                    }
+                }
+                if (interactionRequestForConnection == null)
+                    return;
+
+                this._interactionRequest = interactionRequestForConnection;
+                this.$.modalInteractionDialog.open();
+            },
+
+
+            // Get data from server -------------------------------------------------------------------------
+
+            _getAllData: function()
+            {
+                // TODO: Should this come from the server somehow?
+                this._lastChangeNotificationHandledTimestamp = new Date();
+
+                Promise.resolve()
+                    .then(this._getAccount.bind(this))  // Everything depends on having the account record first
+                    .then(function()
+                    {
+                        this._getDocuments();  // Nothing depends on documents
+                        return this._getSources();
+                    }.bind(this))
+                    .then(this._getConnections.bind(this))  // Depends on sources in order to render
+                    .then(this._getInteractionRequests.bind(this))  // Depends on connections, tho only for now
+                    .catch(function(reason)
+                    {
+                        this.handleCaughtError(reason);
+                    }.bind(this));
+            },
+
+            _getAccount: function()
+            {
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this.userAccountId;
+                return this._httpGet(url)
+                    .then(function(account)
+                    {
+                        this._account = account;
+                        return account;
+                    }.bind(this));
+            },
+
+            _getSources: function()
+            {
+                var url = this.server + this.apiPath +
+                    "/sources";
+                return this._httpGet(url)
+                    .then(function(sources)
+                    {
+                        this._sources = sources;
+                        return sources;
+                    }.bind(this));
+            },
+
+            _getConnections: function()
+            {
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections";
+                return this._httpGet(url)
+                    .then(function(connections)
+                    {
+                        this._connections = connections;
+                        connections.forEach(function(connection)
+                        {
+                            this._injectLogoUrlIntoConnection(connection);
+                        }.bind(this));
+                        return connections;
+                    }.bind(this));
+            },
+
+            _getConnection: function(connectionId)
+            {
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections/" + connectionId;
+                return this._httpGet(url)
+                    .then(function(connection)
+                    {
+                        this._injectLogoUrlIntoConnection(connection);
+                        return connection;
+                    }.bind(this));
+            },
+
+            _deleteConnection: function(connection)
+            {
+                if (!confirm("Are you sure you want to delete the selected connection?"))
+                    return;
+
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections/" + connection.id;
+
+                return this._httpDelete(url);
+            },
+
+            _getDocuments: function()
+            {
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/documents";
+                return this._httpGet(url)
+                    .then(function(documents)
+                    {
+                        this._documents = documents;
+                        this._injectThumbnailUrlIntoDocuments();
+                        return documents;
+                    }.bind(this));
+            },
+
+            _deleteDocument: function(document)
+            {
+                if (!confirm("Are you sure you want to delete the selected document?"))
+                    return;
+
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/documents/" + document.id;
+
+                return this._httpDelete(url);
+            },
+
+            // Get all user interactions ---------------------------------------------------------
+
+            // NOTE: The way we do this is temporary. We iterate through all the user's connections,
+            // asking for the interactions for each, and building a list. Once we've added a new server
+            // API endpoint that lets us get all the interactions for a given user, we will change this code.
+
+            _getInteractionRequests: function()
+            {
+                this._interactionRequests = [];
+
+                var connectionIds = this._connections.map(function(connection) { return connection.id; });
+                var promises = connectionIds.map(this._getConnectionInteractionRequests.bind(this));
+
+                return Promise.all(promises)
+                    .then(function(interactionRequestsPerConnection)
+                    {
+                        interactionRequestsPerConnection.forEach(function(interactionRequests)
+                        {
+                            this._interactionRequests = this._interactionRequests.concat(interactionRequests);
+                        }.bind(this))
+                    }.bind(this));
+            },
+
+            _getInteractionRequest: function(connectionId, interactionId)
+            {
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections/" + connectionId +
+                    "/interactions/" + interactionId;
+                return this._httpGet(url)
+                    .then(function(interactionRequest)
+                    {
+                        // Inject the connection id into the interaction request for future reference
+                        interactionRequest.connectionId = connectionId;
+
+                        return interactionRequest;
+                    }.bind(this));
+            },
+
+            _getConnectionInteractionRequests: function(connectionId)
+            {
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections/" + connectionId +
+                    "/interactions";
+                return this._httpGet(url)
+                    .then(function(interactionRequests)
+                    {
+                        // Inject the connection id into each interaction request for future reference
+                        interactionRequests.forEach(function(interactionRequest)
+                        {
+                            interactionRequest.connectionId = connectionId;
+                        });
+
+                        return interactionRequests;
+                    }.bind(this));
+            },
+
+            poseNextPendingInteractionRequest: function()
+            {
+                if (this._interactionRequests.length == 0)
+                    return;
+
+                // If we already have a dialog posed
+                if (this.$.modalInteractionDialog.opened)
+                    return;
+
+                // Pose the first request
+                var interactionRequest = this._interactionRequests[0];
+                this._interactionRequest = interactionRequest;
+                this.$.modalInteractionDialog.open();
+                return interactionRequest;
+            },
+
+            _poseNextPendingInteractionRequest: function()
+            {
+                if (!this.poseUserInteractionsAutomatically)
+                    return;
+                return this.poseNextPendingInteractionRequest();
+            },
+
+            _createConnection: function(username, password, source)
+            {
+                var sourceId = source.id;
+                sourceId = 100100;  // HACK
+
+                var body =
+                    {
+                        "username": btoa(username),
+                        "password": btoa(password),
+                        "sourceId": sourceId
+                    };
+
+                var url = this.server + this.apiPath +
+                    "/accounts/" + this._account.id +
+                    "/connections";
+
+                return this._httpPost(url, body)
+                    .then(function(response)
+                    {
+                        var connectionId = response.id.toString();
+                        log.debug("Created connection with id: " + connectionId);
+                        return connectionId;
+                    }.bind(this));
+            },
+
+
+            // Helpers -------------------------------------------------------------------------------
+
+            _getSourceLogoUrl: function(sourceId)
+            {
+                var source = this._findSourceWithId(sourceId);
+                if (source == null)
+                    return null;
+                return source.logoUrl;
+            },
+
+            _findSourceWithId: function(sourceId)
+            {
+                var count = this._sources.length;
+                for (var index = 0;
+                     index < count;
+                     index++)
+                {
+                    var source = this._sources[index];
+                    if (source.id == sourceId)
+                        return source;
+                }
+                return null;
+            },
+
+            _findConnectionWithId: function(connectionId)
+            {
+                var count = this._connections.length;
+                for (var index = 0;
+                     index < count;
+                     index++)
+                {
+                    var connection = this._connections[index];
+                    if (connection.id == connectionId)
+                        return connection;
+                }
+                return null;
+            },
+
+            _injectLogoUrlIntoConnection: function(connection)
+            {
+                var sourceId = parseInt(connection.sourceId);
+                var logoUrl = this._getSourceLogoUrl(sourceId);
+                connection.logoUrl = logoUrl;
+            },
+
+            _injectThumbnailUrlIntoDocuments: function()
+            {
+                this._documents.forEach(function(document)
+                {
+                    var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.ticket + "&size=medium";
+                    document.thumbnailUrl = thumbnailUrl;
+                }.bind(this));
+            },
+
+
+            // Handle Change Notifications ------------------------------------------------------------------
+
+            _processChangeNotifications: function()
+            {
+                this._clearRecordedChangeNotifications();
+
+                Promise.resolve()
+                    .then(this._getAllChangeNotifications.bind(this))
+                    .then(this._recordChangeNotifications.bind(this))
+                    .then(this._consolidateRecordedChangeNotifications.bind(this))
+                    .then(this._handleDeletedAndUpdatedRecordedChangeNotifications.bind(this))
+                    .then(this._handleCreatedConnectionRecordedChangeNotifications.bind(this))
+                    .then(this._handleCreatedInteractionRequestRecordedChangeNotifications.bind(this))
+                    .catch(function(reason)
+                    {
+                        this._clearRecordedChangeNotifications();
+
+                        this.handleCaughtError(reason);
+
+                        log.error("Falling back on doing a full refresh of all data after failure to use change notifications.");
+
+                        // Fall back to doing a full refresh of all data
+                        this._getAllData();
+                    }.bind(this));
+            },
+
+            _connectionPattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)$/,
+            _connectionStatePattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)\/state\/([a-zA-Z]+)$/,
+            _connectionValidationPattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)\/validation\/([a-zA-Z]+)$/,
+            _interactionPattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)\/interactions\/([a-zA-Z0-9]+)$/,
+
+            _getAllChangeNotifications: function()
+            {
+                var timestampWithMilliseconds = this._lastChangeNotificationHandledTimestamp.toISOString();
+                var timestamp = timestampWithMilliseconds.split('.')[0] + "Z";
+                var timestampUrlEncoded = encodeURIComponent(timestamp);
+                var url = this.server + this.apiPath +
+                    "/changes" +
+                    "?from=" + timestampUrlEncoded +
+                    "&ticket=" + this.ticket;
+                return this._httpGet(url)
+                    .then(function(changeNotifications)
+                    {
+                        // TODO: This date must come from the server, in order to be accurate
+                        this._lastChangeNotificationHandledTimestamp = new Date();
+
+                        if (changeNotifications.length == 0)
+                            return [];
+
+                        // Sort the notifications from oldest to newest
+                        return changeNotifications.sort(function(a, b) { return a.id > b.id; })
+                    }.bind(this));
+            },
+
+            _recordChangeNotifications: function(notifications)
+            {
+                notifications.forEach(function(notification)
+                {
+                    var type = notification.type;
+                    var resource = notification.resource;
+
+                    log.debug("Change notification: " + type + "  " + resource);
+
+                    if (this._recordConnectionChanged(type, resource))
+                        return;
+                    if (this._recordConnectionStateChanged(type, resource))
+                        return;
+                    if (this._recordConnectionValidationChanged(type, resource))
+                        return;
+                    if (this._recordInteractionChanged(type, resource))
+                        return;
+                    log.error("Unrecognized change notification: " + type + " " + resource);
+                }.bind(this));
+            },
+
+            _clearRecordedChangeNotifications: function()
+            {
+                this._createdConnections = {};
+                this._deletedConnections = {};
+                this._updatedConnections = {};
+                this._updatedConnectionStateProperties = {};
+                this._updatedConnectionValidationProperties = {};
+                this._createdInteractionRequests = {};
+                this._deletedInteractionRequests = {};
+            },
+
+            _recordConnectionChanged: function(type, resource)
+            {
+                var match = this._connectionPattern.exec(resource);
+                if (match == null)
+                    return false;
+
+                var accountId = match[1];
+                var connectionId = match[2];
+
+                // HACK: For now we have to filter out other user changes
+                if (accountId != this._account.id)
+                    return false;
+
+                switch (type)
+                {
+                    case "created":
+                        this._createdConnections[connectionId] = null;
+                        break;
+                    case "updated":
+                        this._updatedConnections[connectionId] = null;
+                        break;
+                    case "deleted":
+                        this._deletedConnections[connectionId] = null;
+                        break;
+                    default:
+                        log.error("Unrecognized notification type for connection resource: " + type);
+                        break;
+                }
+
+                return true;
+            },
+
+            _recordConnectionStateChanged: function(type, resource)
+            {
+                var match = this._connectionStatePattern.exec(resource);
+                if (match == null)
+                    return false;
+
+                var accountId = match[1];
+                var connectionId = match[2];
+                var newState = match[3];
+
+                // HACK: For now we have to filter out other user changes
+                if (accountId != this._account.id)
+                    return false;
+
+                switch (type)
+                {
+                    case "updated":
+                        this._updatedConnectionStateProperties[connectionId] = newState;
+                        break;
+                    default:
+                        log.error("Unrecognized notification type for connection resource 'state' property: " + type);
+                        break;
+                }
+
+                return true;
+            },
+
+            _recordConnectionValidationChanged: function(type, resource)
+            {
+                var match = this._connectionValidationPattern.exec(resource);
+                if (match == null)
+                    return false;
+
+                var accountId = match[1];
+                var connectionId = match[2];
+                var validation = match[3];
+
+                // HACK: For now we have to filter out other user changes
+                if (accountId != this._account.id)
+                    return false;
+
+                switch (type)
+                {
+                    case "updated":
+                        this._updatedConnectionValidationProperties[connectionId] = validation;
+                        break;
+                    default:
+                        log.error("Unrecognized notification type for connection resource 'validation' property: " + type);
+                        break;
+                }
+
+                return true;
+            },
+
+            _recordInteractionChanged: function(type, resource)
+            {
+                var match = this._interactionPattern.exec(resource);
+                if (match == null)
+                    return false;
+
+                var accountId = match[1];
+                var connectionId = match[2];
+                var interactionId = match[3];
+
+                // HACK: For now we have to filter out other user changes
+                if (accountId != this._account.id)
+                    return false;
+
+                switch (type)
+                {
+                    case "created":
+                        this._createdInteractionRequests[interactionId] = connectionId;
+                        break;
+                    case "deleted":
+                        this._deletedInteractionRequests[interactionId] = connectionId;
+                        break;
+                    default:
+                        log.error("Unrecognized notification type for user interaction resource: " + type);
+                        break;
+                }
+
+                return true;
+            },
+
+            _consolidateRecordedChangeNotifications: function()
+            {
+                // TODO: Most, if not all of this can probably be moved into the server logic
+
+                // For each connection deletion record
+                var deletedConnectionIds = Object.keys(this._deletedConnections);
+                deletedConnectionIds.forEach(function(deletedConnectionId)
+                {
+                    // Remove any creation record for this connection because it's old news
+                    delete this._createdConnections[deletedConnectionId];
+
+                    // Remove any update record for this connection because it no longer matters
+                    delete this._updatedConnections[deletedConnectionId];
+
+                    // Remove any property update records for this connection because they no longer matter
+                    delete this._updatedConnectionStateProperties[deletedConnectionId];
+                    delete this._updatedConnectionValidationProperties[deletedConnectionId];
+
+                    // Remove any records for user interaction requests that are children of this deleted connection
+                    this._removeInteractionRecordWithParentConnection(deletedConnectionId, this._createdInteractionRequests);
+                    this._removeInteractionRecordWithParentConnection(deletedConnectionId, this._deletedInteractionRequests);
+                }.bind(this));
+
+                // For each connection creation record
+                var createdConnectionIds = Object.keys(this._createdConnections);
+                createdConnectionIds.forEach(function(createdConnectionId)
+                {
+                    // Remove any deletion record for this connection (should never be any, but...)
+                    delete this._updatedConnections[createdConnectionId];
+
+                    // Remove any property update records for this connection because we will get the whole connection, shortly
+                    delete this._updatedConnectionStateProperties[createdConnectionId];
+                    delete this._updatedConnectionValidationProperties[createdConnectionId];
+                }.bind(this));
+
+                // For each deleted user interaction request
+                var deletedInteractionRequestIds = Object.keys(this._deletedInteractionRequests);
+                deletedInteractionRequestIds.forEach(function(deletedInteractionRequestId)
+                {
+                    // Remove any creation record for this user interaction request because it's old news
+                    delete this._createdInteractionRequests[deletedInteractionRequestId];
+                }.bind(this));
+            },
+
+            _removeInteractionRecordWithParentConnection: function(connectionId, interactionRequests)
+            {
+                var interactionRequestIds = Object.keys(interactionRequests);
+                interactionRequestIds.forEach(function(interactionRequestId)
+                {
+                    var parentConnectionId = interactionRequests[interactionRequestId];
+
+                    if (parentConnectionId != connectionId)
+                        return;
+
+                    delete interactionRequests[interactionRequestId];
+                }.bind(this));
+            },
+
+            _handleDeletedAndUpdatedRecordedChangeNotifications: function()
+            {
+                // Remove deleted connections
+                var deletedConnectionIds = Object.keys(this._deletedConnections);
+                deletedConnectionIds.forEach(function(connectionId)
+                {
+                    this._removeObjectWithIdFromListProperty(connectionId, this._connections, "connections");
+                }.bind(this));
+                this._deletedConnections = {};
+
+                // Remove deleted user interaction requests
+                var deletedInteractionRequestIds = Object.keys(this._deletedInteractionRequests);
+                deletedInteractionRequestIds.forEach(function(interactionRequestId)
+                {
+                    this._removeObjectWithIdFromListProperty(interactionRequestId, this._interactionRequests, "interactionRequests");
+                }.bind(this));
+                this._deletedInteractionRequests = {};
+
+                // Update updated connection state properties
+                var updatedConnectionStateProperties = Object.keys(this._updatedConnectionStateProperties);
+                updatedConnectionStateProperties.forEach(function(connectionId)
+                {
+                    var newState = this._updatedConnectionStateProperties[connectionId];
+                    connection = this._findObjectWithIdInList(connectionId, this._connections);
+                    this._setPropertyOfObjectInListProperty("state", newState, connection, this._connections, "connections")
+                }.bind(this));
+                this._updatedConnectionStateProperties = {};
+
+                // Update updated connection validation properties
+                var updatedConnectionValidationProperties = Object.keys(this._updatedConnectionValidationProperties);
+                updatedConnectionValidationProperties.forEach(function(connectionId)
+                {
+                    var newValidation = this._updatedConnectionValidationProperties[connectionId];
+                    connection = this._findObjectWithIdInList(connectionId, this._connections);
+                    this._setPropertyOfObjectInListProperty("validation", newValidation, connection, this._connections, "connections")
+                }.bind(this));
+                this._updatedConnectionValidationProperties = {};
+            },
+
+            _handleCreatedConnectionRecordedChangeNotifications: function()
+            {
+                var createdConnectionIds = Object.keys(this._createdConnections);
+                var promises = createdConnectionIds.map(this._getConnection.bind(this));
+                return Promise.all(promises)
+                    .then(function(connections)
+                    {
+                        this._addObjectListToListProperty(connections, this._connections, "connections");
+                    }.bind(this));
+            },
+
+            _handleCreatedInteractionRequestRecordedChangeNotifications: function()
+            {
+                var createdInteractionRequestIds = Object.keys(this._createdInteractionRequests);
+
+                var promises = [];
+                createdInteractionRequestIds.forEach(function(interactionRequestId)
+                {
+                    var connectionId = this._createdInteractionRequests[interactionRequestId];
+                    var promise = this._getInteractionRequest(connectionId, interactionRequestId);
+                    promises.push(promise);
+                }.bind(this));
+
+                return Promise.all(promises)
+                    .then(function(interactionRequests)
+                    {
+                        this._addObjectListToListProperty(interactionRequests, this._interactionRequests, "interactionRequests");
+                    }.bind(this));
+            },
+
+
+            // Object list ADT ------------------------------------------------------------------
+
+            // These methods make changes to our observed objects such that the changes are propagated to our observers,
+            // updating the UI appropriately.
+            // See: https://www.polymer-project.org/1.0/docs/devguide/data-system#make-observable-changes
+
+            _indexOfObjectWithIdInList: function(id, list)
+            {
+                var count = list.length;
+                for (var index = 0; index < count; index++)
+                {
+                    var object = list[index];
+                    if (object.id == id)
+                        return index;
+                }
+                return -1;
+            },
+
+            _findObjectWithIdInList: function(id, list)
+            {
+                var index = this._indexOfObjectWithIdInList(id, list);
+                return list[index];
+            },
+
+            _objectIsInList: function(object, list)
+            {
+                var id = object.id;
+                var index = this._indexOfObjectWithIdInList(id, list);
+                var isInList = (index != -1);
+                return isInList;
+            },
+
+            // Create
+
+            _addObjectToListProperty: function (object, list, listPath)
+            {
+                // Short-circuit if object is already in the list
+                if (this._objectIsInList(object, list))
+                    return;
+
+                this.push(listPath, object);
+            },
+
+            _addObjectListToListProperty: function (objectList, list, listPath)
+            {
+                if (objectList.length == 0)
+                    return;
+
+                // Build a new list of objects that are not already in the target list
+                var uniqueObjectList = [];
+                objectList.forEach(function(object)
+                {
+                    if (!this._objectIsInList(object, list))
+                        uniqueObjectList.push(object);
+                }.bind(this));
+
+                // Splice the new objects into the list property array
+                var insertIndexAtStart = 0;
+                var removeCountZero = 0;
+                var spliceObjectList = this.splice.bind(this, listPath, insertIndexAtStart, removeCountZero);
+                spliceObjectList.apply(this, uniqueObjectList);
+            },
+
+            // Update
+
+            _setPropertyOfObjectInListProperty: function (objectPropertyName, objectPropertyValue, object, list, listPath)
+            {
+                // Make sure the object really is in the list
+                var objectId = object.id;
+                var objectIndexInList = this._indexOfObjectWithIdInList(objectId, list);
+                if (objectIndexInList == -1)
+                {
+                    log.warn("Attempt to set property of object that is not in given list");
+                    return;
+                }
+
+                // Set the property of the object
+                var path = [listPath, objectIndexInList.toString(), objectPropertyName];
+                this.set(path, objectPropertyValue);
+            },
+
+            // Delete
+
+            _removeObjectWithIdFromListProperty: function (id, list, listPath)
+            {
+                // Short-circuit if object is not in the list
+                var index = this._indexOfObjectWithIdInList(id, list);
+                if (index == -1)
+                    return;
+
+                // Splice the object out of the list property array
+                var removeCountOne = 1;
+                this.splice(listPath, index, removeCountOne);
             }
 
         });
