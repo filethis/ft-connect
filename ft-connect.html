@@ -24,6 +24,7 @@ limitations under the License.
 <link rel="import" href="../paper-checkbox/paper-checkbox.html">
 <link rel="import" href="../paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../iron-pages/iron-pages.html">
+<link rel="import" href="../app-route/app-route.html">
 
 <link rel="import" href="../ft-document-panel/ft-document-panel.html">
 <link rel="import" href="../ft-source-panel/ft-source-panel.html">
@@ -55,6 +56,12 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
     <template>
 
+        <app-route
+            route="{{route}}"
+            pattern="/:panelName"
+            data="{{data}}">
+        </app-route>
+
         <div class="layout vertical">
 
             <!-- Header bar -->
@@ -68,13 +75,17 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 </iron-image>
 
                 <!-- Company Name -->
-                <span class="title" id="logo">Acme, Inc.</span>
+                <span class="title">Acme, Inc.</span>
 
                 <!-- Panel Tabs -->
-                <paper-tabs id="panelTabs" selected="{{_selectedTabIndex}}" style="font-size:16pt;">
-                    <paper-tab id="sourcesPanelTab">Sources</paper-tab>
-                    <paper-tab id="connectionsPanelTab">Connections</paper-tab>
-                    <paper-tab id="documentsPanelTab">Documents</paper-tab>
+                <paper-tabs
+                        id="panelTabs"
+                        attr-for-selected="name"
+                        selected="{{data.panelName}}"
+                        style="font-size:16pt;">
+                    <paper-tab name="sources">Sources</paper-tab>
+                    <paper-tab name="connections">Connections</paper-tab>
+                    <paper-tab name="documents">Documents</paper-tab>
                 </paper-tabs>
 
                 <div class="flex"></div>
@@ -82,25 +93,29 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             </paper-toolbar>
 
             <!-- Panels -->
-            <iron-pages id="panels" style="width:100%; height:100%;" selected="{{_selectedTabIndex}}">
-                <ft-document-panel id="documentPanel"
-                                 style="width:200px;height:200px;"
-                                 documents="[[documents]]">
-                </ft-document-panel>
-                <ft-source-panel id="sourcePanel"
+            <iron-pages
+                    id="panels"
+                    style="width:100%; height:100%;"
+                    attr-for-selected="name"
+                    selected="{{data.panelName}}">
+                <ft-source-panel name="sources"
                                  style="width:200px;height:200px"
-                                 sources="[[sources]]">
+                                 sources="[[_sources]]">
                 </ft-source-panel>
-                <ft-connections-panel id="connectionsPanel"
-                                      connections="[[connections]]"
-                                      sources="[[sources]]">
+                <ft-connections-panel name="connections"
+                                      connections="[[_connections]]"
+                                      sources="[[_sources]]">
                 </ft-connections-panel>
+                <ft-document-panel name="documents"
+                                 style="width:200px;height:200px;"
+                                 documents="[[_documents]]">
+                </ft-document-panel>
             </iron-pages>
 
         </div>
 
         <!-- User interaction dialog -->
-        <paper-dialog modal id="modalInteractionDialog",
+        <paper-dialog modal id="modalInteractionDialog"
                       style="width:450px;
                       padding-left:40px; padding-top:12px; padding-right:40px; padding-bottom:5px;">
 
@@ -147,58 +162,43 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             properties: {
 
+                /** Route. */
+                route: {
+                    type: Object,
+                    notify: true,
+                    observer: "_onRouteChanged"
+                },
+
                 /** The "base" URL for requests. For example: "https://filethis.com". Note that you should not use a trailing slash. */
                 server:
                 {
                     type: String,
-                    value: "",
-                    observer: "_onServerChanged"
+                    value: "https://filethis.com",
+                    observer: "_onSettingsChanged"
                 },
-//                server:
-//                {
-//                    type: String,
-//                    value: "https://filethis.com",
-//                    observer: "_onSettingsChanged"
-//                },
 
                 /** The user's FileThis account id. */
                 userAccountId: {
                     type: String,
                     value: "",
-                    observer: "_onUserAccountIdChanged"
+                    observer: "_onSettingsChanged"
                 },
-//                userAccountId: {
-//                    type: String,
-//                    value: "",
-//                    observer: "_onSettingsChanged"
-//                },
 
                 /** The end-user FileThis ticket. Used to authenticate and authorize requests to the FileThis API endpoints. */
                 ticket:
                 {
                     type: String,
                     value: "",
-                    observer: "_onTicketChanged"
+                    observer: "_onSettingsChanged"
                 },
-//                ticket:
-//                {
-//                    type: String,
-//                    value: "",
-//                    observer: "_onSettingsChanged"
-//                },
 
                 /** The path under the baseUrl used for API requests. For example: "/api/v1". Note that you should use a leading slash, and no trailing slash. */
                 apiPath:
                 {
                     type: String,
-                    value: "/api/v1"
+                    value: "/api/v1",
+                    observer: "_onSettingsChanged"
                 },
-//                apiPath:
-//                {
-//                    type: String,
-//                    value: "/api/v1",
-//                    observer: "_onSettingsChanged"
-//                },
 
                 /** True when all the settings are set: server, userAccountId, ticket, and apiPath */
                 isLive:
@@ -206,6 +206,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     type: Boolean,
                     notify: true,
                     value: false,
+                    readonly: true,
                     observer: "_onIsLiveChanged"
                 },
 
@@ -261,25 +262,12 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     value: true
                 },
 
-                _selectedManagerPanelTabIndex:
+                /** Name of the selected tab. One of: "sources", "connections", or "documents". */
+                selectedTabName:
                 {
-                    type: Number,
+                    type: String,
                     notify: true,
-                    value: "0"
-                },
-
-                _selectedMainTabIndex:
-                {
-                    type: Number,
-                    notify: true,
-                    value: "0"
-                },
-
-                _selectedTabIndex:
-                {
-                    type: Number,
-                    notify: true,
-                    value: "0"
+                    value: "sources"
                 },
                 
                 _uploadableFileTypes:
@@ -310,22 +298,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 }
             },
 
-            _onServerChanged: function()
-            {
-                var theServer = this.server;
-            },
-
-            _onUserAccountIdChanged: function()
-            {
-                var theUserAccountId = this.userAccountId;
-            },
-
-            _onTicketChanged: function()
-            {
-                var theTicket = this.ticket;
-            },
-
-
 
             // Application data members ------------------------------------------------------------------
 
@@ -352,10 +324,15 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 //                setInterval(this._changeNotificationPoller.bind(this), 2000);  // Poll for change notifications every two seconds
             },
 
+            _onRouteChanged: function(to, from)
+            {
+                var foo = "bar";
+            },
+
             _onSettingsChanged: function()
             {
                 this._checkCanGoLive();
-//                this.isLive = this._checkCanGoLive();
+                this.isLive = this._checkCanGoLive();
             },
 
             _checkCanGoLive: function()
@@ -375,11 +352,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 if (this.isLive)
                     this._getAllData();
-
-                if (this.isLive)
-                    this.$.logo.innerHTML = "Live";
-                else
-                    this.$.logo.innerHTML = "Dead";
             },
 
             _changeNotificationPoller: function()
@@ -479,7 +451,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server +
                     "/?op=upload" +
                     "&filename=" + file.name;
-                return this._httpPost(url, file);  // TODO: What about the file type?
+                const options = this._buildHttpOptions();
+                return this.httpPost(url, file, options);  // TODO: What about the file type?
             },
 
             _onDelete: function(event)
@@ -522,8 +495,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     "/connections/" + connectionId +
                     "/interactions/" + interactionId +
                     "/response";
+                const options = this._buildHttpOptions();
 
-                return this._httpPut(url, interactionResponse)
+                return this.httpPut(url, interactionResponse, options)
                     .then(function()
                     {
                         this.$.modalInteractionDialog.close();
@@ -547,8 +521,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 //                    "/connections/" + connectionId +
 //                    "/interactions/" + interactionId +
 //                    "/response";
+//            const options = this._buildHttpOptions();
 //
-//                return this._httpPost(url, interactionResponse)
+//                return this.httpPost(url, interactionResponse, options)
 //                    .then(function()
 //                    {
 //                        this.$.modalInteractionDialog.close();
@@ -595,8 +570,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     "/accounts/" + this._account.id +
                     "/connections/" + connection.id +
                     "/fetch";
+                const options = this._buildHttpOptions();
 
-                return this._httpPost(url);
+                return this.httpPost(url, options);
             },
 
             _poseInteractionForConnection: function(connection)
@@ -658,7 +634,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 var url = this.server + this.apiPath +
                     "/accounts/" + this.userAccountId;
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(account)
                     {
                         this._account = account;
@@ -670,7 +647,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 var url = this.server + this.apiPath +
                     "/sources";
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(sources)
                     {
                         this._sources = sources;
@@ -683,7 +661,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server + this.apiPath +
                     "/accounts/" + this._account.id +
                     "/connections";
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(connections)
                     {
                         this._connections = connections;
@@ -700,7 +679,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server + this.apiPath +
                     "/accounts/" + this._account.id +
                     "/connections/" + connectionId;
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(connection)
                     {
                         this._injectLogoUrlIntoConnection(connection);
@@ -716,8 +696,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server + this.apiPath +
                     "/accounts/" + this._account.id +
                     "/connections/" + connection.id;
+                const options = this._buildHttpOptions();
 
-                return this._httpDelete(url);
+                return this.httpDelete(url, options);
             },
 
             _getDocuments: function()
@@ -725,7 +706,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server + this.apiPath +
                     "/accounts/" + this._account.id +
                     "/documents";
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(documents)
                     {
                         this._documents = documents;
@@ -742,8 +724,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server + this.apiPath +
                     "/accounts/" + this._account.id +
                     "/documents/" + document.id;
+                const options = this._buildHttpOptions();
 
-                return this._httpDelete(url);
+                return this.httpDelete(url, options);
             },
 
             // Get all user interactions ---------------------------------------------------------
@@ -775,7 +758,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     "/accounts/" + this._account.id +
                     "/connections/" + connectionId +
                     "/interactions/" + interactionId;
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(interactionRequest)
                     {
                         // Inject the connection id into the interaction request for future reference
@@ -791,7 +775,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     "/accounts/" + this._account.id +
                     "/connections/" + connectionId +
                     "/interactions";
-                return this._httpGet(url)
+                return this.httpGet(url, options)
                     .then(function(interactionRequests)
                     {
                         // Inject the connection id into each interaction request for future reference
@@ -842,8 +826,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var url = this.server + this.apiPath +
                     "/accounts/" + this._account.id +
                     "/connections";
+                const options = this._buildHttpOptions();
 
-                return this._httpPost(url, body)
+                return this.httpPost(url, body, options)
                     .then(function(response)
                     {
                         var connectionId = response.id.toString();
@@ -948,7 +933,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     "/changes" +
                     "?from=" + timestampUrlEncoded +
                     "&ticket=" + this.ticket;
-                return this._httpGet(url)
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
                     .then(function(changeNotifications)
                     {
                         // TODO: This date must come from the server, in order to be accurate
@@ -1331,6 +1317,15 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 // Splice the object out of the list property array
                 var removeCountOne = 1;
                 this.splice(listPath, index, removeCountOne);
+            },
+
+            _buildHttpOptions: function()
+            {
+                return {
+                    headers: {
+                        "X-FileThis-Session": this.ticket
+                    }
+                };
             }
 
         });
