@@ -30,6 +30,7 @@ limitations under the License.
 <link rel="import" href="../ft-source-panel/ft-source-panel.html">
 <link rel="import" href="../ft-connections-panel/ft-connections-panel.html">
 <link rel="import" href="../ft-user-interaction-form/ft-user-interaction-form.html">
+<link rel="import" href="../ft-confirmation-dialog/ft-confirmation-dialog.html">
 <link rel="import" href="../ft-error-behavior/ft-error-behavior.html">
 <link rel="import" href="../ft-http-behavior/ft-http-behavior.html">
 
@@ -52,6 +53,15 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
           --paper-checkbox-unchecked-ink-color: white;
           --paper-checkbox-label-color: white;
         }
+
+        /* We use links in our tab bar so that routing will work, but want the text to look "normal" */
+        a {
+            color:white;
+            border:none;
+            text-decoration:none;
+            height: auto !important;
+        }
+
     </style>
 
     <template>
@@ -59,10 +69,12 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
         <app-route
             route="{{route}}"
             pattern="/:panelName"
-            data="{{data}}">
+            data="{{_routeData}}">
         </app-route>
 
-        <div class="layout vertical">
+        <div
+                class="layout vertical"
+                style="width:100%; height:100%;">
 
             <!-- Header bar -->
             <paper-toolbar>
@@ -71,6 +83,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 <iron-image
                         style="width:100px; height:100px;"
                         sizing="contain"
+                        on-click="_onLogoClicked"
                         src="acme-logo.png">
                 </iron-image>
 
@@ -81,11 +94,11 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 <paper-tabs
                         id="panelTabs"
                         attr-for-selected="name"
-                        selected="{{data.panelName}}"
+                        selected="{{_selectedPanelName}}"
                         style="font-size:16pt;">
-                    <paper-tab name="sources">Sources</paper-tab>
-                    <paper-tab name="connections">Connections</paper-tab>
-                    <paper-tab name="documents">Documents</paper-tab>
+                    <paper-tab name="sources"><a href="#/sources" tabindex="-1">Sources</a></paper-tab>
+                    <paper-tab name="connections"><a href="#/connections" tabindex="-1">Connections</a></paper-tab>
+                    <paper-tab name="documents"><a href="#/documents" tabindex="-1">Documents</a></paper-tab>
                 </paper-tabs>
 
                 <div class="flex"></div>
@@ -97,18 +110,24 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     id="panels"
                     style="width:100%; height:100%;"
                     attr-for-selected="name"
-                    selected="{{data.panelName}}">
-                <ft-source-panel name="sources"
-                                 style="width:200px;height:200px"
-                                 sources="[[_sources]]">
+                    selected="{{_selectedPanelName}}">
+                <ft-source-panel
+                        id="sourcesPanel"
+                        name="sources"
+                        style="width:200px;height:200px"
+                        sources="[[sources]]">
                 </ft-source-panel>
-                <ft-connections-panel name="connections"
-                                      connections="[[_connections]]"
-                                      sources="[[_sources]]">
+                <ft-connections-panel
+                        id="connectionsPanel"
+                        name="connections"
+                        connections="[[_connections]]"
+                        sources="[[sources]]">
                 </ft-connections-panel>
-                <ft-document-panel name="documents"
-                                 style="width:200px;height:200px;"
-                                 documents="[[_documents]]">
+                <ft-document-panel
+                        id="documentsPanel"
+                        name="documents"
+                        style="width:200px;height:200px;"
+                        documents="[[documents]]">
                 </ft-document-panel>
             </iron-pages>
 
@@ -132,7 +151,24 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
         </paper-dialog>
 
         <!-- Uploader -->
-        <input id="uploader" type="file" on-change="_onUploaderFilesChanged" multiple="true" accept="[[_uploadableFileTypes]]" hidden>
+        <input
+                id="uploader"
+                type="file"
+                on-change="_onUploaderFilesChanged"
+                multiple="true"
+                accept="[[_uploadableFileTypes]]"
+                hidden>
+
+        <!-- Downloader -->
+        <a
+                id="downloader"
+                hidden$="true"
+                href$="[[_downloadUrl]]"
+                download$="[[_downloadFilename]]">
+        </a>
+
+        <!-- Confirmation dialog -->
+        <ft-confirmation-dialog id="confirmationDialog"></ft-confirmation-dialog>
 
     </template>
 
@@ -146,9 +182,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             is: 'ft-connect',
 
-            // TODO: When ticket is injected, set the httpHeaders:
-            //    this.httpHeaders = [ {name:"X-FileThis-Session", value:this.ticket}];
-
             behaviors: [FtErrorBehavior, FtHttpBehavior],
 
             listeners:
@@ -157,67 +190,67 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 'download': '_onDownload',
                 'upload': '_onUpload',
                 'delete': '_onDelete',
-                'action-button-clicked': '_onActionButtonClicked'
+                'action-button-clicked': '_onActionButtonClicked',
+                'visit-source-site': '_onVisitSourceSite',
+                'is-this-safe': '_onIsThisSafe'
             },
 
             properties: {
 
-                /** Route. */
-                route: {
-                    type: Object,
-                    notify: true,
-                    observer: "_onRouteChanged"
+                /** When true, we are live */
+                enabled:
+                {
+                    type: Boolean,
+                    value: false,
+                    observer: "_onEnabledChanged"
                 },
 
                 /** The "base" URL for requests. For example: "https://filethis.com". Note that you should not use a trailing slash. */
                 server:
                 {
                     type: String,
-                    value: "https://filethis.com",
-                    observer: "_onSettingsChanged"
-                },
-
-                /** The user's FileThis account id. */
-                userAccountId: {
-                    type: String,
-                    value: "",
-                    observer: "_onSettingsChanged"
-                },
-
-                /** The end-user FileThis ticket. Used to authenticate and authorize requests to the FileThis API endpoints. */
-                ticket:
-                {
-                    type: String,
-                    value: "",
-                    observer: "_onSettingsChanged"
+                    value: "https://filethis.com"
                 },
 
                 /** The path under the baseUrl used for API requests. For example: "/api/v1". Note that you should use a leading slash, and no trailing slash. */
                 apiPath:
                 {
                     type: String,
-                    value: "/api/v1",
-                    observer: "_onSettingsChanged"
+                    value: "/api/v1"
                 },
 
-                /** True when all the settings are set: server, userAccountId, ticket, and apiPath */
-                isLive:
+                /** The user's FileThis account id. */
+                userAccountId: {
+                    type: String,
+                    value: ""
+                },
+
+                /** The end-user FileThis ticket. Used to authenticate and authorize requests to the FileThis API endpoints. */
+                ticket:
                 {
-                    type: Boolean,
-                    notify: true,
-                    value: false,
-                    readonly: true,
-                    observer: "_onIsLiveChanged"
+                    type: String,
+                    value: ""
                 },
 
-                _account:
+                /** Route. */
+                route: {
+                    type: Object,
+                    notify: true
+                },
+
+                _routeData: {
+                    type: Object,
+                    observer: "_onRouteDataChanged"
+                },
+
+                account:
                 {
                     type: Object,
                     notify: true,
                     value: null
                 },
 
-                _sources:
+                sources:
                 {
                     type: Array,
                     notify: true,
@@ -231,7 +264,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     value: []
                 },
 
-                _documents:
+                documents:
                 {
                     type: Array,
                     notify: true,
@@ -242,14 +275,12 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 interactionVersion:
                 {
                     type: Object,  // JSON
-                    notify: true,
                     value: "1.0.0"
                 },
 
                 _interactionRequests:
                 {
                     type: Array,
-                    notify: true,
                     value: [],
                     observer: "_onInteractionRequestsChanged"
                 },
@@ -258,56 +289,65 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 poseUserInteractionsAutomatically:
                 {
                     type: Boolean,
-                    notify: true,
                     value: true
                 },
 
-                /** Name of the selected tab. One of: "sources", "connections", or "documents". */
-                selectedTabName:
+                /** Name of the selected panel. One of: "sources", "connections", or "documents". */
+                _selectedPanelName:
                 {
                     type: String,
-                    notify: true,
-                    value: "sources"
+                    value: "sources",
+                    observer: "_onSelectedPanelNameChanged"
                 },
-                
+
                 _uploadableFileTypes:
                 {
                     type: String,
-                    notify: true,
                     value: "application/pdf"
                 },
 
                 _interactionRequest:
                 {
-                    type: Object,
-                    notify: true
+                    type: Object
+                },
+
+                _downloadUrl:
+                {
+                    type: String,
+                    value: ""
+                },
+
+                _downloadFilename:
+                {
+                    type: String,
+                    value: ""
                 },
 
                 _interactionResponse:
                 {
-                    type: Object,
-                    notify: true
+                    type: Object
                 },
 
                 // TODO: Remove once polling is done
                 pollForChangeNotifications:
                 {
                     type: Boolean,
-                    notify: true,
                     value: true
                 }
             },
 
 
-            // Application data members ------------------------------------------------------------------
+            // Application _routeData members ------------------------------------------------------------------
 
             // Note: These are effectively "static" class variables, not instance variables. We can get away with this
             // because we only ever instantiate one application object. We like not having these in the Polymer instance
             // properties above where they would pollute that context (which they would do even if they were "private").
 
-            _lastChangeNotificationHandledTimestamp: new Date("2022-01-01"),  // The far future
+            _lastChangeNotificationHandledOrdinal: null,
 
             // Connection changes
+            _createdDocuments: {},
+            _deletedDocuments: {},
             _createdConnections: {},
             _deletedConnections: {},
             _updatedConnections: {},
@@ -318,51 +358,58 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _createdInteractionRequests: {},
             _deletedInteractionRequests: {},
 
-
             ready: function()
             {
-//                setInterval(this._changeNotificationPoller.bind(this), 2000);  // Poll for change notifications every two seconds
+                setInterval(this._changeNotificationPoller.bind(this), 1000);  // Poll for change notifications every two seconds
+
+                this.async(function()
+                {
+                    this._selectedPanelName = "sources";
+                })
             },
 
-            _onRouteChanged: function(to, from)
+            _onRouteDataChanged: function()
             {
-                var foo = "bar";
+                if (!this._routeData)
+                    return;
+                if (!this._selectedPanelName)
+                    return;
+                this._selectedPanelName = this._routeData.panelName;
             },
 
-            _onSettingsChanged: function()
+            _onSelectedPanelNameChanged: function()
             {
-                this._checkCanGoLive();
-                this.isLive = this._checkCanGoLive();
+                if (!this._routeData)
+                    return;
+                if (!this._selectedPanelName)
+                    return;
+                this._routeData.panelName = this._selectedPanelName;
             },
 
-            _checkCanGoLive: function()
+            _onEnabledChanged: function()
             {
-                if (!this.server)
-                    return false;
-                if (!this.userAccountId)
-                    return false;
-                if (!this.ticket)
-                    return false;
-                if (!this.apiPath)
-                    return false;
-                return true;
-            },
+                this._lastChangeNotificationHandledOrdinal = null;
+                this._processingChangeNotifications = false;
 
-            _onIsLiveChanged: function()
-            {
-                if (this.isLive)
+                if (this.enabled)
                     this._getAllData();
             },
 
             _changeNotificationPoller: function()
             {
-                if (this.pollForChangeNotifications)
-                    this._processChangeNotifications();
+                if (!this.pollForChangeNotifications)
+                    return;
+                if (!this.enabled)
+                    return;
+                if (this._processingChangeNotifications)
+                    return;
+
+                this._processChangeNotifications();
             },
 
             _onInteractionRequestsChanged: function()
             {
-                if (this._interactionRequests.length == 0)
+                if (this._interactionRequests.length === 0)
                     return;
 
                 // TODO: Do we only want to do this when we just got a notification that one was created?
@@ -374,7 +421,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _onCommit: function(event)
             {
                 var target = event.target;
-                if (target.id == "createConnectionDialog")
+                if (target.id === "createConnectionDialog")
                 {
                     var createConnectionDialog = target;
                     var source = event.detail;
@@ -382,10 +429,14 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 }
             },
 
+            _onLogoClicked: function(event)
+            {
+            },
+
             _onDownload: function(event)
             {
                 var target = event.target;
-                if (target.id == "documentPanel")
+                if (target.id === "documentsPanel")
                 {
                     var document = event.detail;
                     this._downloadDocument(document);
@@ -394,15 +445,67 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _downloadDocument: function(document)
             {
-                alert("Downloads coming soon!");
+                // NOTE: This is not an ideal way to download documents, but I could not get the standard method
+                // to work. See: _downloadDocumentShouldWorkButDoesNot(). Here, we have to make a request to get
+                // the filename before we download the actual file. Also, because we can't add headers to the
+                // request, we have to pass both the ticket and the "Accept" type as URL parameters instead.
+                // We had to add a new "accept" URL parameter on the server side to accommodate this. Kind of ugly...
 
-                // See DownloadCommand.as, beginDownload()
+                const documentId = document.id;
+
+                var url = this.server + this.apiPath +
+                    "/documents/" + documentId;
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
+                    .then(function(document)
+                    {
+                        this._downloadFilename = document.name;
+                        this._downloadUrl = this.server + this.apiPath +
+                           "/documents/" + documentId +
+                            "?ticket=" + this.ticket +
+                            "&accept=application%2Fpdf";
+
+                        this.$.downloader.click();
+                    }.bind(this))
+                    .catch(function(error)
+                    {
+                        this._handleError(error);
+                    }.bind(this));
+            },
+
+            _downloadDocumentShouldWorkButDoesNot: function(document)
+            {
+                // TODO: Spent a lot of time trying to get this standard method for downloading files to work.
+                // Best I can figure, this is some kind of cross-site problem. When call the click() method,
+                // nothing happens...
+
+                const documentId = document.id;
+                var url = this.server + this.apiPath +
+                    "/documents/" + documentId;
+
+                const options = this._buildHttpOptions();
+                options.headers["Accept"] = "application/pdf";
+                options.responseType = "blob";
+
+                return this.httpGet(url, options)
+                    .then(function(responseAsBlob)
+                    {
+                        var url = window.URL.createObjectURL(responseAsBlob);
+                        this._downloadUrl = url;
+                        this._downloadFilename = "foo.pdf";
+                        this.$.downloader.click();
+                        window.URL.revokeObjectURL(url);
+                    }.bind(this))
+                    .catch(function(error)
+                    {
+                        this._handleError(error);
+                    }.bind(this));
             },
 
             _onUpload: function(event)
             {
                 var target = event.target;
-                if (target.id == "documentPanel")
+                if (target.id === "documentsPanel")
                     this._chooseFilesToUpload();
             },
 
@@ -440,7 +543,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 return Promise.all(uploads)
                     .catch(function(reason)
                     {
-                        this.handleCaughtError(reason);
+                        this._handleError(reason);
 
                         // TODO: Display something to the user and suggest what they ought to do
                     }.bind(this));
@@ -448,25 +551,49 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _uploadFile: function(file)
             {
-                var url = this.server +
-                    "/?op=upload" +
-                    "&filename=" + file.name;
+                // Create a FormData instance
+                var formData = new FormData();
+
+                // Add properties to the form
+                const properties = {
+                    filename: file.name
+                };
+                const propertiesAsString = JSON.stringify(properties);
+                formData.append("properties", propertiesAsString);
+
+                // Add the file to the form
+                formData.append("file", file);
+
+                var url = this.server + this.apiPath +
+                    "/documents/";
                 const options = this._buildHttpOptions();
-                return this.httpPost(url, file, options);  // TODO: What about the file type?
+
+                // We do NOT want to set the Content-Type to "multipart/form-data" explicitly here, as it MUST be done
+                // by the XMLHttpRequest instance which will add it, appending the "boundary" string to it.
+
+                return this.httpPost(url, formData, options);
             },
 
             _onDelete: function(event)
             {
                 var target = event.target;
-                if (target.id == "documentPanel")
+                if (target.id === "documentsPanel")
                 {
                     var document = event.detail;
-                    this._deleteDocument(document);
+                    this._onDeleteDocument(document)
+                        .catch(function(reason)
+                        {
+                            this._handleError(reason);
+                        }.bind(this));
                 }
-                if (target.id == "connectionsPanel")
+                if (target.id === "connectionsPanel")
                 {
                     var connection = event.detail;
-                    this._deleteConnection(connection);
+                    this._onDeleteConnection(connection)
+                        .catch(function(reason)
+                        {
+                            this._handleError(reason);
+                        }.bind(this));
                 }
             },
 
@@ -476,10 +603,26 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 this._handleConnectionAction(connection);
             },
 
+            _onVisitSourceSite: function(event)
+            {
+                const source = event.detail;
+                const url = source.homePageUrl;
+                var win = window.open(url, '_blank');
+                if (win)
+                    win.focus();
+                else
+                    this.$.confirmationDialog.alert("Please allow popups for this site");
+            },
+
+            _onIsThisSafe: function(event)
+            {
+                this.$.confirmationDialog.alert("We use bank-level encryption to keep your credentials safe.");
+            },
+
             _onInteractionFormButtonClicked: function(event)
             {
                 var detail = event.detail;
-                if (detail.action == "defer")
+                if (detail.action === "defer")
                     this.$.modalInteractionDialog.close();
             },
 
@@ -491,7 +634,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var connectionId = interactionRequest.connectionId;
                 var interactionId = interactionRequest.id;
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
+                    "/accounts/" + this.account.id +
                     "/connections/" + connectionId +
                     "/interactions/" + interactionId +
                     "/response";
@@ -504,7 +647,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     }.bind(this))
                     .catch(function(reason)
                     {
-                        this.handleCaughtError(reason);
+                        this._handleError(reason);
                         this.$.modalInteractionDialog.close();
                     }.bind(this));
             },
@@ -517,7 +660,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 //                var connectionId = interactionRequest.connectionId;
 //                var interactionId = interactionRequest.id;
 //                var url = this.server + this.apiPath +
-//                    "/accounts/" + this._account.id +
+//                    "/accounts/" + this.account.id +
 //                    "/connections/" + connectionId +
 //                    "/interactions/" + interactionId +
 //                    "/response";
@@ -530,7 +673,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 //                    }.bind(this))
 //                    .catch(function(reason)
 //                    {
-//                        this.handleCaughtError(reason);
+//                        this._handleError(reason);
 //                        this.$.modalInteractionDialog.close();
 //                    }.bind(this));
 //            },
@@ -567,7 +710,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 // TODO: Shouldn't we disable the fetch button to prevent double-clicking?
 
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
                     "/connections/" + connection.id +
                     "/fetch";
                 const options = this._buildHttpOptions();
@@ -578,7 +720,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _poseInteractionForConnection: function(connection)
             {
                 var count = this._interactionRequests.length;
-                if (count == 0)
+                if (count === 0)
                     return;
 
                 // If we already have a dialog posed
@@ -594,41 +736,43 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 for (var index = 0; index < count; index++)
                 {
                     var interactionRequest = this._interactionRequests[index];
-                    if (interactionRequest.connectionId == connectionId)
+                    if (interactionRequest.connectionId === connectionId)
                     {
                         interactionRequestForConnection = interactionRequest;
                         break;
                     }
                 }
-                if (interactionRequestForConnection == null)
+                if (interactionRequestForConnection === null)
                     return;
 
                 this._interactionRequest = interactionRequestForConnection;
                 this.$.modalInteractionDialog.open();
             },
 
-
-            // Get data from server -------------------------------------------------------------------------
-
             _getAllData: function()
             {
-                // TODO: Should this come from the server somehow?
-                this._lastChangeNotificationHandledTimestamp = new Date();
-
                 Promise.resolve()
-                    .then(this._getAccount.bind(this))  // Everything depends on having the account record first
+                    .then(this._getAccount.bind(this))  // Rest of promise chain depends on having the account record
                     .then(function()
                     {
-                        this._getDocuments();  // Nothing depends on documents
+                        this._getDocuments();  // Nothing in the rest of our promise chain depends on having documents
                         return this._getSources();
                     }.bind(this))
                     .then(this._getConnections.bind(this))  // Depends on sources in order to render
-                    .then(this._getInteractionRequests.bind(this))  // Depends on connections, tho only for now
+                    .then(this._getInteractionRequests.bind(this))  // Depends on connections, though only for now
+                    .then(function()
+                    {
+                        this._processingChangeNotifications = false;  // In case we got here after failing to get them
+                    }.bind(this))
                     .catch(function(reason)
                     {
-                        this.handleCaughtError(reason);
+                        this._processingChangeNotifications = false;  // In case we got here after failing to get them
+                        this._handleError(reason);
                     }.bind(this));
             },
+
+
+            // Actions -------------------------------------------------------------------------
 
             _getAccount: function()
             {
@@ -638,7 +782,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 return this.httpGet(url, options)
                     .then(function(account)
                     {
-                        this._account = account;
+                        this.account = account;
                         return account;
                     }.bind(this));
             },
@@ -651,7 +795,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 return this.httpGet(url, options)
                     .then(function(sources)
                     {
-                        this._sources = sources;
+                        this.sources = sources;
                         return sources;
                     }.bind(this));
             },
@@ -659,7 +803,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _getConnections: function()
             {
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
                     "/connections";
                 const options = this._buildHttpOptions();
                 return this.httpGet(url, options)
@@ -677,7 +820,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _getConnection: function(connectionId)
             {
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
                     "/connections/" + connectionId;
                 const options = this._buildHttpOptions();
                 return this.httpGet(url, options)
@@ -688,13 +830,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     }.bind(this));
             },
 
-            _deleteConnection: function(connection)
+            _onDeleteConnection: function(connection)
             {
-                if (!confirm("Are you sure you want to delete the selected connection?"))
-                    return;
-
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
                     "/connections/" + connection.id;
                 const options = this._buildHttpOptions();
 
@@ -704,25 +842,33 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _getDocuments: function()
             {
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
                     "/documents";
                 const options = this._buildHttpOptions();
                 return this.httpGet(url, options)
                     .then(function(documents)
                     {
-                        this._documents = documents;
+                        this.documents = documents;
                         this._injectThumbnailUrlIntoDocuments();
                         return documents;
                     }.bind(this));
             },
 
-            _deleteDocument: function(document)
+            _getDocument: function(documentId)
             {
-                if (!confirm("Are you sure you want to delete the selected document?"))
-                    return;
-
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
+                    "/documents/" + documentId;
+                const options = this._buildHttpOptions();
+                return this.httpGet(url, options)
+                    .then(function(document)
+                    {
+                        this._injectThumbnailUrlIntoDocument(document);
+                        return document;
+                    }.bind(this));
+            },
+
+            _onDeleteDocument: function(document)
+            {
+                var url = this.server + this.apiPath +
                     "/documents/" + document.id;
                 const options = this._buildHttpOptions();
 
@@ -731,7 +877,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             // Get all user interactions ---------------------------------------------------------
 
-            // NOTE: The way we do this is temporary. We iterate through all the user's connections,
+            // TODO: The way we do this is temporary. We iterate through all the user's connections,
             // asking for the interactions for each, and building a list. Once we've added a new server
             // API endpoint that lets us get all the interactions for a given user, we will change this code.
 
@@ -755,7 +901,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _getInteractionRequest: function(connectionId, interactionId)
             {
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
+                    "/accounts/" + this.account.id +
                     "/connections/" + connectionId +
                     "/interactions/" + interactionId;
                 const options = this._buildHttpOptions();
@@ -772,9 +918,10 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _getConnectionInteractionRequests: function(connectionId)
             {
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
+                    "/accounts/" + this.account.id +
                     "/connections/" + connectionId +
                     "/interactions";
+                const options = this._buildHttpOptions();
                 return this.httpGet(url, options)
                     .then(function(interactionRequests)
                     {
@@ -790,7 +937,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             poseNextPendingInteractionRequest: function()
             {
-                if (this._interactionRequests.length == 0)
+                if (this._interactionRequests.length === 0)
                     return;
 
                 // If we already have a dialog posed
@@ -814,7 +961,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _createConnection: function(username, password, source)
             {
                 var sourceId = source.id;
-                sourceId = 100100;  // HACK
 
                 var body =
                     {
@@ -824,7 +970,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     };
 
                 var url = this.server + this.apiPath +
-                    "/accounts/" + this._account.id +
                     "/connections";
                 const options = this._buildHttpOptions();
 
@@ -834,6 +979,10 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                         var connectionId = response.id.toString();
                         log.debug("Created connection with id: " + connectionId);
                         return connectionId;
+                    }.bind(this))
+                    .catch(function(reason)
+                    {
+                        this._handleError(reason);
                     }.bind(this));
             },
 
@@ -843,20 +992,20 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _getSourceLogoUrl: function(sourceId)
             {
                 var source = this._findSourceWithId(sourceId);
-                if (source == null)
+                if (source === null)
                     return null;
                 return source.logoUrl;
             },
 
             _findSourceWithId: function(sourceId)
             {
-                var count = this._sources.length;
+                var count = this.sources.length;
                 for (var index = 0;
                      index < count;
                      index++)
                 {
-                    var source = this._sources[index];
-                    if (source.id == sourceId)
+                    var source = this.sources[index];
+                    if (source.id === sourceId)
                         return source;
                 }
                 return null;
@@ -870,7 +1019,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                      index++)
                 {
                     var connection = this._connections[index];
-                    if (connection.id == connectionId)
+                    if (connection.id === connectionId)
                         return connection;
                 }
                 return null;
@@ -885,11 +1034,21 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _injectThumbnailUrlIntoDocuments: function()
             {
-                this._documents.forEach(function(document)
+                // TODO: Can we send the ticket as a header here, now?
+
+                this.documents.forEach(function(document)
                 {
                     var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.ticket + "&size=medium";
                     document.thumbnailUrl = thumbnailUrl;
                 }.bind(this));
+            },
+
+            _injectThumbnailUrlIntoDocument: function(document)
+            {
+                // TODO: Can we send the ticket as a header here, now?
+
+                var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.ticket + "&size=medium";
+                document.thumbnailUrl = thumbnailUrl;
             },
 
 
@@ -899,52 +1058,89 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 this._clearRecordedChangeNotifications();
 
+                this._processingChangeNotifications = true;
+
                 Promise.resolve()
                     .then(this._getAllChangeNotifications.bind(this))
                     .then(this._recordChangeNotifications.bind(this))
                     .then(this._consolidateRecordedChangeNotifications.bind(this))
                     .then(this._handleDeletedAndUpdatedRecordedChangeNotifications.bind(this))
                     .then(this._handleCreatedConnectionRecordedChangeNotifications.bind(this))
+                    .then(this._handleCreatedDocumentRecordedChangeNotifications.bind(this))
                     .then(this._handleCreatedInteractionRequestRecordedChangeNotifications.bind(this))
+                    .then(function()
+                    {
+                        this._processingChangeNotifications = false;
+                    }.bind(this))
                     .catch(function(reason)
                     {
                         this._clearRecordedChangeNotifications();
 
-                        this.handleCaughtError(reason);
+                        this._handleError(reason);
 
-                        log.error("Falling back on doing a full refresh of all data after failure to use change notifications.");
+                        // If we're still live (eg. the user ticket did not just expire)
+                        if (this.enabled)
+                        {
+                            // Fall back to doing a full refresh of all data
+                            log.warn("Falling back on doing a full refresh of all data after failure to use change notifications.");
+                            this._getAllData();
+                        }
+                        else
+                        {
+                            this._processingChangeNotifications = false;
+                        }
 
-                        // Fall back to doing a full refresh of all data
-                        this._getAllData();
                     }.bind(this));
             },
 
-            _connectionPattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)$/,
-            _connectionStatePattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)\/state\/([a-zA-Z]+)$/,
-            _connectionValidationPattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)\/validation\/([a-zA-Z]+)$/,
-            _interactionPattern: /^\/accounts\/([a-zA-Z0-9]+)\/connections\/([a-zA-Z0-9]+)\/interactions\/([a-zA-Z0-9]+)$/,
+            _connectionPattern: /^\/connections\/([a-zA-Z0-9]+)$/,
+            _connectionStatePattern: /^\/connections\/([a-zA-Z0-9]+)\/state\/([a-zA-Z]+)$/,
+            _connectionValidationPattern: /^\/connections\/([a-zA-Z0-9]+)\/validation\/([a-zA-Z]+)$/,
+            _interactionPattern: /^\/connections\/([a-zA-Z0-9]+)\/interactions\/([a-zA-Z0-9]+)$/,
+            _documentPattern: /^\/documents\/([a-zA-Z0-9]+)$/,
 
             _getAllChangeNotifications: function()
             {
-                var timestampWithMilliseconds = this._lastChangeNotificationHandledTimestamp.toISOString();
-                var timestamp = timestampWithMilliseconds.split('.')[0] + "Z";
-                var timestampUrlEncoded = encodeURIComponent(timestamp);
-                var url = this.server + this.apiPath +
-                    "/changes" +
-                    "?from=" + timestampUrlEncoded +
-                    "&ticket=" + this.ticket;
+                var url = this.server + this.apiPath + "/changes";
+
+                const ordinal = this._lastChangeNotificationHandledOrdinal;
+                const haveOrdinal = !!ordinal;
+                if (haveOrdinal)
+                {
+                    // Ask for notifications after the ordinal
+                    url += "?after=" + ordinal;
+                }
+                else
+                {
+                    // Ask for notifications after "now"
+                    const now = new Date();
+                    var timestampWithMilliseconds = now.toISOString();
+                    var timestamp = timestampWithMilliseconds.split('.')[0] + "Z";
+                    var timestampUrlEncoded = encodeURIComponent(timestamp);
+                    url += "?from=" + timestampUrlEncoded;
+                    url += "&dummy=true";  // Ask for a dummy notification, if there are no real ones
+                }
                 const options = this._buildHttpOptions();
                 return this.httpGet(url, options)
                     .then(function(changeNotifications)
                     {
-                        // TODO: This date must come from the server, in order to be accurate
-                        this._lastChangeNotificationHandledTimestamp = new Date();
-
-                        if (changeNotifications.length == 0)
+                        if (changeNotifications.length === 0)
                             return [];
 
                         // Sort the notifications from oldest to newest
-                        return changeNotifications.sort(function(a, b) { return a.id > b.id; })
+                        changeNotifications = changeNotifications.sort(function(a, b) { return a.id > b.id; });
+
+                        // Cache the id of the the newest
+                        const lastNotificationIndex = changeNotifications.length - 1;
+                        const lastNotification = changeNotifications[lastNotificationIndex];
+                        const lastNotificationId = lastNotification.id;
+                        this._lastChangeNotificationHandledOrdinal = lastNotificationId;
+
+                        // If we got the dummy record, filter it out
+                        if (lastNotification.type === "dummy")
+                            return [];
+
+                        return changeNotifications;
                     }.bind(this));
             },
 
@@ -955,8 +1151,10 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     var type = notification.type;
                     var resource = notification.resource;
 
-                    log.debug("Change notification: " + type + "  " + resource);
+                    log.debug("Received change notification: " + type + "  " + resource);
 
+                    if (this._recordDocumentChanged(type, resource))
+                        return;
                     if (this._recordConnectionChanged(type, resource))
                         return;
                     if (this._recordConnectionStateChanged(type, resource))
@@ -971,6 +1169,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _clearRecordedChangeNotifications: function()
             {
+                this._createdDocuments = {};
+                this._deletedDocuments = {};
                 this._createdConnections = {};
                 this._deletedConnections = {};
                 this._updatedConnections = {};
@@ -980,18 +1180,37 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 this._deletedInteractionRequests = {};
             },
 
+            _recordDocumentChanged: function(type, resource)
+            {
+                var match = this._documentPattern.exec(resource);
+                if (match === null)
+                    return false;
+
+                var documentId = match[1];
+
+                switch (type)
+                {
+                    case "created":
+                        this._createdDocuments[documentId] = null;
+                        break;
+                    case "deleted":
+                        this._deletedDocuments[documentId] = null;
+                        break;
+                    default:
+                        log.error("Unrecognized notification type for document resource: " + type);
+                        break;
+                }
+
+                return true;
+            },
+
             _recordConnectionChanged: function(type, resource)
             {
                 var match = this._connectionPattern.exec(resource);
                 if (match == null)
                     return false;
 
-                var accountId = match[1];
-                var connectionId = match[2];
-
-                // HACK: For now we have to filter out other user changes
-                if (accountId != this._account.id)
-                    return false;
+                var connectionId = match[1];
 
                 switch (type)
                 {
@@ -1018,13 +1237,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 if (match == null)
                     return false;
 
-                var accountId = match[1];
-                var connectionId = match[2];
-                var newState = match[3];
-
-                // HACK: For now we have to filter out other user changes
-                if (accountId != this._account.id)
-                    return false;
+                var connectionId = match[1];
+                var newState = match[2];
 
                 switch (type)
                 {
@@ -1045,13 +1259,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 if (match == null)
                     return false;
 
-                var accountId = match[1];
-                var connectionId = match[2];
-                var validation = match[3];
-
-                // HACK: For now we have to filter out other user changes
-                if (accountId != this._account.id)
-                    return false;
+                var connectionId = match[1];
+                var validation = match[2];
 
                 switch (type)
                 {
@@ -1072,13 +1281,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 if (match == null)
                     return false;
 
-                var accountId = match[1];
-                var connectionId = match[2];
-                var interactionId = match[3];
-
-                // HACK: For now we have to filter out other user changes
-                if (accountId != this._account.id)
-                    return false;
+                var connectionId = match[1];
+                var interactionId = match[2];
 
                 switch (type)
                 {
@@ -1099,6 +1303,14 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             _consolidateRecordedChangeNotifications: function()
             {
                 // TODO: Most, if not all of this can probably be moved into the server logic
+
+                // For each document deletion record
+                var deletedDocumentIds = Object.keys(this._deletedDocuments);
+                deletedDocumentIds.forEach(function(deletedDocumentId)
+                {
+                    // Remove any creation record for this document because it's old news
+                    delete this._createdDocuments[deletedDocumentId];
+                }.bind(this));
 
                 // For each connection deletion record
                 var deletedConnectionIds = Object.keys(this._deletedConnections);
@@ -1124,11 +1336,19 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 createdConnectionIds.forEach(function(createdConnectionId)
                 {
                     // Remove any deletion record for this connection (should never be any, but...)
-                    delete this._updatedConnections[createdConnectionId];
+                    delete this._deletedConnections[createdConnectionId];
 
                     // Remove any property update records for this connection because we will get the whole connection, shortly
                     delete this._updatedConnectionStateProperties[createdConnectionId];
                     delete this._updatedConnectionValidationProperties[createdConnectionId];
+                }.bind(this));
+
+                // For each document creation record
+                var createdDocumentIds = Object.keys(this._createdDocuments);
+                createdDocumentIds.forEach(function(createdDocumentId)
+                {
+                    // Remove any deletion record for this document (should never be any, but...)
+                    delete this._deletedDocuments[createdDocumentId];
                 }.bind(this));
 
                 // For each deleted user interaction request
@@ -1147,7 +1367,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 {
                     var parentConnectionId = interactionRequests[interactionRequestId];
 
-                    if (parentConnectionId != connectionId)
+                    if (parentConnectionId !== connectionId)
                         return;
 
                     delete interactionRequests[interactionRequestId];
@@ -1160,15 +1380,23 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var deletedConnectionIds = Object.keys(this._deletedConnections);
                 deletedConnectionIds.forEach(function(connectionId)
                 {
-                    this._removeObjectWithIdFromListProperty(connectionId, this._connections, "connections");
+                    this._removeObjectWithIdFromListProperty(connectionId, this._connections, "_connections");
                 }.bind(this));
                 this._deletedConnections = {};
+
+                // Remove deleted documents
+                var deletedDocumentIds = Object.keys(this._deletedDocuments);
+                deletedDocumentIds.forEach(function(documentId)
+                {
+                    this._removeObjectWithIdFromListProperty(documentId, this.documents, "documents");
+                }.bind(this));
+                this._deletedDocuments = {};
 
                 // Remove deleted user interaction requests
                 var deletedInteractionRequestIds = Object.keys(this._deletedInteractionRequests);
                 deletedInteractionRequestIds.forEach(function(interactionRequestId)
                 {
-                    this._removeObjectWithIdFromListProperty(interactionRequestId, this._interactionRequests, "interactionRequests");
+                    this._removeObjectWithIdFromListProperty(interactionRequestId, this._interactionRequests, "_interactionRequests");
                 }.bind(this));
                 this._deletedInteractionRequests = {};
 
@@ -1177,8 +1405,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 updatedConnectionStateProperties.forEach(function(connectionId)
                 {
                     var newState = this._updatedConnectionStateProperties[connectionId];
-                    connection = this._findObjectWithIdInList(connectionId, this._connections);
-                    this._setPropertyOfObjectInListProperty("state", newState, connection, this._connections, "connections")
+                    var connection = this._findObjectWithIdInList(connectionId, this._connections);
+                    this._setPropertyOfObjectInListProperty("state", newState, connection, this._connections, "_connections")
                 }.bind(this));
                 this._updatedConnectionStateProperties = {};
 
@@ -1187,20 +1415,43 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 updatedConnectionValidationProperties.forEach(function(connectionId)
                 {
                     var newValidation = this._updatedConnectionValidationProperties[connectionId];
-                    connection = this._findObjectWithIdInList(connectionId, this._connections);
-                    this._setPropertyOfObjectInListProperty("validation", newValidation, connection, this._connections, "connections")
+                    var connection = this._findObjectWithIdInList(connectionId, this._connections);
+                    this._setPropertyOfObjectInListProperty("validation", newValidation, connection, this._connections, "_connections")
                 }.bind(this));
                 this._updatedConnectionValidationProperties = {};
+            },
+
+            _handleCreatedDocumentRecordedChangeNotifications: function()
+            {
+                var createdDocumentIds = Object.keys(this._createdDocuments);
+
+                // If there are no created documents recorded, short circuit
+                if (createdDocumentIds.length === 0)
+                    return Promise.resolve();
+
+                // Get all the created documents and add them to our local list
+                var promises = createdDocumentIds.map(this._getDocument.bind(this));
+                return Promise.all(promises)
+                    .then(function(documents)
+                    {
+                        this._addObjectListToListProperty(documents, this.documents, "documents");
+                    }.bind(this));
             },
 
             _handleCreatedConnectionRecordedChangeNotifications: function()
             {
                 var createdConnectionIds = Object.keys(this._createdConnections);
+
+                // If there are no created connections recorded, short circuit
+                if (createdConnectionIds.length === 0)
+                    return Promise.resolve();
+
+                // Get all the created connections and add them to our local list
                 var promises = createdConnectionIds.map(this._getConnection.bind(this));
                 return Promise.all(promises)
                     .then(function(connections)
                     {
-                        this._addObjectListToListProperty(connections, this._connections, "connections");
+                        this._addObjectListToListProperty(connections, this._connections, "_connections");
                     }.bind(this));
             },
 
@@ -1208,6 +1459,11 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 var createdInteractionRequestIds = Object.keys(this._createdInteractionRequests);
 
+                // If there are no created interaction requests recorded, short circuit
+                if (createdInteractionRequestIds.length === 0)
+                    return Promise.resolve();
+
+                // Make a list of promises to get all the created interaction requests
                 var promises = [];
                 createdInteractionRequestIds.forEach(function(interactionRequestId)
                 {
@@ -1216,19 +1472,20 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     promises.push(promise);
                 }.bind(this));
 
+                // Get all the created interaction requests and add them to our local list
                 return Promise.all(promises)
                     .then(function(interactionRequests)
                     {
-                        this._addObjectListToListProperty(interactionRequests, this._interactionRequests, "interactionRequests");
+                        this._addObjectListToListProperty(interactionRequests, this._interactionRequests, "_interactionRequests");
                     }.bind(this));
             },
 
 
-            // Object list ADT ------------------------------------------------------------------
+            // Object lists ------------------------------------------------------------------
 
             // These methods make changes to our observed objects such that the changes are propagated to our observers,
             // updating the UI appropriately.
-            // See: https://www.polymer-project.org/1.0/docs/devguide/data-system#make-observable-changes
+            // See: https://www.polymer-project.org/1.0/docs/devguide/_routeData-system#make-observable-changes
 
             _indexOfObjectWithIdInList: function(id, list)
             {
@@ -1236,7 +1493,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 for (var index = 0; index < count; index++)
                 {
                     var object = list[index];
-                    if (object.id == id)
+                    if (object.id === id)
                         return index;
                 }
                 return -1;
@@ -1252,7 +1509,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 var id = object.id;
                 var index = this._indexOfObjectWithIdInList(id, list);
-                var isInList = (index != -1);
+                var isInList = (index !== -1);
                 return isInList;
             },
 
@@ -1269,7 +1526,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _addObjectListToListProperty: function (objectList, list, listPath)
             {
-                if (objectList.length == 0)
+                if (objectList.length === 0)
                     return;
 
                 // Build a new list of objects that are not already in the target list
@@ -1294,7 +1551,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 // Make sure the object really is in the list
                 var objectId = object.id;
                 var objectIndexInList = this._indexOfObjectWithIdInList(objectId, list);
-                if (objectIndexInList == -1)
+                if (objectIndexInList === -1)
                 {
                     log.warn("Attempt to set property of object that is not in given list");
                     return;
@@ -1311,7 +1568,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 // Short-circuit if object is not in the list
                 var index = this._indexOfObjectWithIdInList(id, list);
-                if (index == -1)
+                if (index === -1)
                     return;
 
                 // Splice the object out of the list property array
@@ -1326,6 +1583,13 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                         "X-FileThis-Session": this.ticket
                     }
                 };
+            },
+
+            _handleError: function(error)
+            {
+                // Let our parents figure out what to do. They will probably ground us by setting our
+                // "enabled" property to false.
+                this.fire("ft-connect-error", error);
             }
 
         });
