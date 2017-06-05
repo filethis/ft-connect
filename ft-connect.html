@@ -120,7 +120,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 <ft-connections-panel
                         id="connectionsPanel"
                         name="connections"
-                        connections="[[_connections]]"
+                        connections="[[connections]]"
                         sources="[[sources]]">
                 </ft-connections-panel>
                 <ft-document-panel
@@ -225,8 +225,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     value: ""
                 },
 
-                /** The end-user FileThis ticket. Used to authenticate and authorize requests to the FileThis API endpoints. */
-                ticket:
+                /** The end-user FileThis token. Used to authenticate and authorize requests to the FileThis API endpoints. */
+                token:
                 {
                     type: String,
                     value: ""
@@ -257,7 +257,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                     value: []
                 },
 
-                _connections:
+                connections:
                 {
                     type: Array,
                     notify: true,
@@ -368,7 +368,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 })
             },
 
-            _onRouteDataChanged: function()
+            _onRouteDataChanged: function(to, from)
             {
                 if (!this._routeData)
                     return;
@@ -377,7 +377,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 this._selectedPanelName = this._routeData.panelName;
             },
 
-            _onSelectedPanelNameChanged: function()
+            _onSelectedPanelNameChanged: function(to, from)
             {
                 if (!this._routeData)
                     return;
@@ -386,7 +386,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 this._routeData.panelName = this._selectedPanelName;
             },
 
-            _onEnabledChanged: function()
+            _onEnabledChanged: function(to, from)
             {
                 this._lastChangeNotificationHandledOrdinal = null;
                 this._processingChangeNotifications = false;
@@ -407,7 +407,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 this._processChangeNotifications();
             },
 
-            _onInteractionRequestsChanged: function()
+            _onInteractionRequestsChanged: function(to, from)
             {
                 if (this._interactionRequests.length === 0)
                     return;
@@ -448,7 +448,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 // NOTE: This is not an ideal way to download documents, but I could not get the standard method
                 // to work. See: _downloadDocumentShouldWorkButDoesNot(). Here, we have to make a request to get
                 // the filename before we download the actual file. Also, because we can't add headers to the
-                // request, we have to pass both the ticket and the "Accept" type as URL parameters instead.
+                // request, we have to pass both the token and the "Accept" type as URL parameters instead.
                 // We had to add a new "accept" URL parameter on the server side to accommodate this. Kind of ugly...
 
                 const documentId = document.id;
@@ -462,7 +462,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                         this._downloadFilename = document.name;
                         this._downloadUrl = this.server + this.apiPath +
                            "/documents/" + documentId +
-                            "?ticket=" + this.ticket +
+                            "?ticket=" + this.token +
                             "&accept=application%2Fpdf";
 
                         this.$.downloader.click();
@@ -808,7 +808,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 return this.httpGet(url, options)
                     .then(function(connections)
                     {
-                        this._connections = connections;
+                        this.connections = connections;
                         connections.forEach(function(connection)
                         {
                             this._injectLogoUrlIntoConnection(connection);
@@ -885,7 +885,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 this._interactionRequests = [];
 
-                var connectionIds = this._connections.map(function(connection) { return connection.id; });
+                var connectionIds = this.connections.map(function(connection) { return connection.id; });
                 var promises = connectionIds.map(this._getConnectionInteractionRequests.bind(this));
 
                 return Promise.all(promises)
@@ -1013,12 +1013,12 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _findConnectionWithId: function(connectionId)
             {
-                var count = this._connections.length;
+                var count = this.connections.length;
                 for (var index = 0;
                      index < count;
                      index++)
                 {
-                    var connection = this._connections[index];
+                    var connection = this.connections[index];
                     if (connection.id === connectionId)
                         return connection;
                 }
@@ -1034,11 +1034,11 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _injectThumbnailUrlIntoDocuments: function()
             {
-                // TODO: Can we send the ticket as a header here, now?
+                // TODO: Can we send the token as a header here, now?
 
                 this.documents.forEach(function(document)
                 {
-                    var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.ticket + "&size=medium";
+                    var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.token + "&size=medium";
                     document.thumbnailUrl = thumbnailUrl;
                 }.bind(this));
             },
@@ -1047,7 +1047,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 // TODO: Can we send the ticket as a header here, now?
 
-                var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.ticket + "&size=medium";
+                var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.token + "&size=medium";
                 document.thumbnailUrl = thumbnailUrl;
             },
 
@@ -1078,7 +1078,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
                         this._handleError(reason);
 
-                        // If we're still live (eg. the user ticket did not just expire)
+                        // If we're still live (eg. the user token did not just expire)
                         if (this.enabled)
                         {
                             // Fall back to doing a full refresh of all data
@@ -1380,7 +1380,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 var deletedConnectionIds = Object.keys(this._deletedConnections);
                 deletedConnectionIds.forEach(function(connectionId)
                 {
-                    this._removeObjectWithIdFromListProperty(connectionId, this._connections, "_connections");
+                    this._removeObjectWithIdFromListProperty(connectionId, this.connections, "connections");
                 }.bind(this));
                 this._deletedConnections = {};
 
@@ -1405,8 +1405,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 updatedConnectionStateProperties.forEach(function(connectionId)
                 {
                     var newState = this._updatedConnectionStateProperties[connectionId];
-                    var connection = this._findObjectWithIdInList(connectionId, this._connections);
-                    this._setPropertyOfObjectInListProperty("state", newState, connection, this._connections, "_connections")
+                    var connection = this._findObjectWithIdInList(connectionId, this.connections);
+                    this._setPropertyOfObjectInListProperty("state", newState, connection, this.connections, "connections")
                 }.bind(this));
                 this._updatedConnectionStateProperties = {};
 
@@ -1415,8 +1415,8 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 updatedConnectionValidationProperties.forEach(function(connectionId)
                 {
                     var newValidation = this._updatedConnectionValidationProperties[connectionId];
-                    var connection = this._findObjectWithIdInList(connectionId, this._connections);
-                    this._setPropertyOfObjectInListProperty("validation", newValidation, connection, this._connections, "_connections")
+                    var connection = this._findObjectWithIdInList(connectionId, this.connections);
+                    this._setPropertyOfObjectInListProperty("validation", newValidation, connection, this.connections, "connections")
                 }.bind(this));
                 this._updatedConnectionValidationProperties = {};
             },
@@ -1451,7 +1451,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 return Promise.all(promises)
                     .then(function(connections)
                     {
-                        this._addObjectListToListProperty(connections, this._connections, "_connections");
+                        this._addObjectListToListProperty(connections, this.connections, "connections");
                     }.bind(this));
             },
 
@@ -1580,7 +1580,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 return {
                     headers: {
-                        "X-FileThis-Session": this.ticket
+                        "X-FileThis-Session": this.token
                     }
                 };
             },
