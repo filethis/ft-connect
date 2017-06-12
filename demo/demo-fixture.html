@@ -159,9 +159,9 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             {
                 var version = this.interactionVersion;
                 var url;
-                if (version == "2.0.0")
+                if (version === "2.0.0")
                     url = "data/fake-interaction-requests-2_0_0.json";
-                else if (version == "1.0.0")
+                else if (version === "1.0.0")
                     url = "data/fake-interaction-requests-1_0_0.json";
                 else
                     throw new Error("Unrecognized user interaction schema version: " + version);
