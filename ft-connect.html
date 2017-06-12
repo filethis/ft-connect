@@ -43,7 +43,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
 <dom-module id="ft-connect">
 
-    <style include="iron-flex iron-flex-alignment"></style>
+    <style include="iron-flex iron-flex-alignment iron-positioning"></style>
 
     <style is="custom-style">
         paper-checkbox.white {
@@ -1034,21 +1034,20 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             _injectThumbnailUrlIntoDocuments: function()
             {
-                // TODO: Can we send the token as a header here, now?
-
                 this.documents.forEach(function(document)
                 {
-                    var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.token + "&size=medium";
-                    document.thumbnailUrl = thumbnailUrl;
+                    this._injectThumbnailUrlIntoDocument(document);
                 }.bind(this));
             },
 
             _injectThumbnailUrlIntoDocument: function(document)
             {
-                // TODO: Can we send the ticket as a header here, now?
-
-                var thumbnailUrl = this.server + "/ftapi/ftapi?op=thumb&json=true&id=" + document.id + "&ticket=" + this.token + "&size=medium";
-                document.thumbnailUrl = thumbnailUrl;
+                var url = this.server + this.apiPath +
+                    "/documents/" + documentId +
+                    "/thumbnails/" + "medium" +
+                    "?ticket=" + this.token +
+                    "&accept=" + "image%2Fjpeg";
+                document.thumbnailUrl = url;
             },
 
 
