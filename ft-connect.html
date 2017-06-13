@@ -46,31 +46,37 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
     <style include="iron-flex iron-flex-alignment iron-positioning"></style>
 
-    <style is="custom-style">
-        paper-checkbox.white {
-          --paper-checkbox-checked-color: white;
-          --paper-checkbox-checked-ink-color: white;
-          --paper-checkbox-unchecked-color: white;
-          --paper-checkbox-unchecked-ink-color: white;
-          --paper-checkbox-label-color: white;
-        }
-
-        /* We use links in our tab bar so that routing will work, but want the text to look "normal" */
-        a {
-            color:black;
-            border:none;
-            text-decoration:none;
-            height: auto !important;
-        }
-
-        #panelTabs
-        {
-            --paper-tabs-selection-bar-color:blue;
-        }
-
-    </style>
-
     <template>
+
+        <style>
+            :host {
+                display:block;
+            }
+        </style>
+
+        <style is="custom-style">
+            paper-checkbox.white {
+              --paper-checkbox-checked-color: white;
+              --paper-checkbox-checked-ink-color: white;
+              --paper-checkbox-unchecked-color: white;
+              --paper-checkbox-unchecked-ink-color: white;
+              --paper-checkbox-label-color: white;
+            }
+
+            /* We use links in our tab bar so that routing will work, but want the text to look "normal" */
+            a {
+                color:black;
+                border:none;
+                text-decoration:none;
+                height: auto !important;
+            }
+
+            #panelTabs
+            {
+                --paper-tabs-selection-bar-color:blue;
+            }
+
+        </style>
 
         <app-route
             route="{{route}}"
