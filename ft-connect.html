@@ -166,16 +166,16 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
         <!-- Uploader -->
         <input
                 id="uploader"
+                hidden
                 type="file"
                 on-change="_onUploaderFilesChanged"
                 multiple="true"
-                accept="[[_uploadableFileTypes]]"
-                hidden>
+                accept="[[_uploadableFileTypes]]">
 
         <!-- Downloader -->
         <a
                 id="downloader"
-                hidden$="true"
+                hidden
                 href$="[[_downloadUrl]]"
                 download$="[[_downloadFilename]]">
         </a>
