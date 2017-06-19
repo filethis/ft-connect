@@ -28,7 +28,7 @@ limitations under the License.
 
 <link rel="import" href="../ft-document-panel/ft-document-panel.html">
 <link rel="import" href="../ft-source-panel/ft-source-panel.html">
-<link rel="import" href="../ft-connections-panel/ft-connections-panel.html">
+<link rel="import" href="../ft-connection-panel/ft-connection-panel.html">
 <link rel="import" href="../ft-user-interaction-form/ft-user-interaction-form.html">
 <link rel="import" href="../ft-confirmation-dialog/ft-confirmation-dialog.html">
 <link rel="import" href="../ft-error-behavior/ft-error-behavior.html">
@@ -36,13 +36,13 @@ limitations under the License.
 <link rel="import" href="../ft-connect-behavior/ft-connect-behavior.html">
 
 <!--
-`ft-connect`
+`ft-connect-tabbed`
 A drop-in HTML 5 element that quickly, securely, and flexibly integrates your application with the FileThis API.
 
 @demo demo/index.html
 -->
 
-<dom-module id="ft-connect">
+<dom-module id="ft-connect-tabbed">
 
     <style include="iron-flex iron-flex-alignment iron-positioning"></style>
 
@@ -130,12 +130,12 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                         style="width:200px;height:200px"
                         sources="[[sources]]">
                 </ft-source-panel>
-                <ft-connections-panel
+                <ft-connection-panel
                         id="connectionsPanel"
                         name="connections"
                         connections="[[connections]]"
                         sources="[[sources]]">
-                </ft-connections-panel>
+                </ft-connection-panel>
                 <ft-document-panel
                         id="documentsPanel"
                         name="documents"
@@ -188,7 +188,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
     <script>
         Polymer({
 
-            is: 'ft-connect',
+            is: 'ft-connect-tabbed',
 
             behaviors: [FtErrorBehavior, FtHttpBehavior, FtConnectBehavior],
 
