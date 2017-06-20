@@ -1,6 +1,6 @@
 # Project configuration
 NAME=ft-connect-tabbed
-VERSION=0.0.4
+VERSION=0.0.5
 LOCAL_PORT=3500
 GITHUB_USER=filethis
 
