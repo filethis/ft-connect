@@ -15,24 +15,18 @@ limitations under the License.
 -->
 
 
-<link rel="import" href="../polymer/polymer.html">
-
-<link rel="import" href="../iron-flex-layout/iron-flex-layout-classes.html">
-<link rel="import" href="../iron-image/iron-image.html">
-<link rel="import" href="../paper-tabs/paper-tabs.html">
-<link rel="import" href="../paper-checkbox/paper-checkbox.html">
-<link rel="import" href="../paper-icon-button/paper-icon-button.html">
-<link rel="import" href="../iron-pages/iron-pages.html">
 <link rel="import" href="../app-route/app-route.html">
-
+<link rel="import" href="../ft-confirmation-dialog/ft-confirmation-dialog.html">
+<link rel="import" href="../ft-connect-behavior/ft-connect-behavior.html">
+<link rel="import" href="../ft-connection-panel/ft-connection-panel.html">
 <link rel="import" href="../ft-document-panel/ft-document-panel.html">
 <link rel="import" href="../ft-source-panel/ft-source-panel.html">
-<link rel="import" href="../ft-connection-panel/ft-connection-panel.html">
 <link rel="import" href="../ft-user-interaction-form/ft-user-interaction-form.html">
-<link rel="import" href="../ft-confirmation-dialog/ft-confirmation-dialog.html">
-<link rel="import" href="../ft-error-behavior/ft-error-behavior.html">
-<link rel="import" href="../ft-http-behavior/ft-http-behavior.html">
-<link rel="import" href="../ft-connect-behavior/ft-connect-behavior.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="../paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../paper-dialog/paper-dialog.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../polymer/polymer.html">
 
 <!--
 `ft-connect-tabbed`
@@ -91,16 +85,16 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
             <div
                     class="layout horizontal center">
 
-                <!-- Company Logo -->
-                <iron-image
-                        style="width:100px; height:100px;"
-                        sizing="contain"
-                        on-tap="_onLogoClicked"
-                        src="acme-logo.png">
-                </iron-image>
+                <!--&lt;!&ndash; Company Logo &ndash;&gt;-->
+                <!--<iron-image-->
+                        <!--style="width:100px; height:100px;"-->
+                        <!--sizing="contain"-->
+                        <!--on-tap="_onLogoClicked"-->
+                        <!--src="acme-logo.png">-->
+                <!--</iron-image>-->
 
-                <!-- Company Name -->
-                <span class="title">Acme, Inc.</span>
+                <!--&lt;!&ndash; Company Name &ndash;&gt;-->
+                <!--<span class="title">Acme, Inc.</span>-->
 
                 <!-- Panel Tabs -->
                 <paper-tabs
@@ -178,7 +172,6 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 hidden
                 href$="[[_downloadUrl]]"
                 download$="[[_downloadFilename]]">
-        </a>
 
         <!-- Confirmation dialog -->
         <ft-confirmation-dialog id="confirmationDialog"></ft-confirmation-dialog>
@@ -190,7 +183,7 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             is: 'ft-connect-tabbed',
 
-            behaviors: [FtErrorBehavior, FtHttpBehavior, FtConnectBehavior],
+            behaviors: [FtConnectBehavior],
 
             properties: {
 
