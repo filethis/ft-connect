@@ -183,7 +183,10 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
 
             is: 'ft-connect-tabbed',
 
-            behaviors: [FileThis.ConnectBehavior],
+            behaviors: [
+                FileThis.ConnectBehavior,
+                FileThis.ErrorBehavior, FileThis.HttpBehavior // TODO: Why do we have to include these when ConnectBehavior aready does?
+            ],
 
             properties: {
 
