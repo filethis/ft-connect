@@ -194,6 +194,11 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 FileThis.ErrorBehavior, FileThis.HttpBehavior // TODO: Why do we have to include these when ConnectBehavior aready does?
             ],
 
+            listeners:
+            {
+                'commit': '_onCommitLocal'
+            },
+
             properties: {
 
                 /** Route. */
@@ -329,8 +334,16 @@ A drop-in HTML 5 element that quickly, securely, and flexibly integrates your ap
                 if (!this.poseUserInteractionsAutomatically)
                     return;
                 return this.poseNextPendingInteractionRequest();
+            },
+
+            _onCommitLocal: function(event)
+            {
+                var origin = event.path[0];
+                if (origin.id === "createConnectionDialog")
+                    this._selectedPanelName = "connections";  // TODO: Make this a configurable option?
             }
 
         });
     </script>
 </dom-module>
+
