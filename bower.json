@@ -1,7 +1,7 @@
 {
   "name": "ft-connect-tabbed",
   "description": "A drop-in HTML 5 element that quickly, securely, and flexibly integrates your application with the FileThis API.",
-  "main": "ft-connect-tabbed",
+  "main": "ft-connect-tabbed.html",
   "dependencies": {
     "app-route": "PolymerElements/app-route#1 - 2",
     "ft-confirmation-dialog": "filethis/ft-confirmation-dialog#^0.0.11",
