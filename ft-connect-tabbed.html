@@ -90,7 +90,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
         <!-- Panels -->
         <iron-pages
                 id="panels"
-                class="flex"
+                class="flex layout vertical"
                 style="border-top:1px solid #DDD; "
                 attr-for-selected="name"
                 selected="{{_selectedPanelName}}">
@@ -99,7 +99,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
             <ft-source-panel
                     id="sourcesPanel"
                     name="sources"
-                    style="width:100%; height:100%; "
+                    class="flex"
                     show-title="false"
                     selected-filter-id="{{selectedFilterId}}"
                     code="{{_sourcesCode}}"
@@ -110,7 +110,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
             <ft-connection-panel
                     id="connectionsPanel"
                     name="connections"
-                    style="width:100%; height:100%; "
+                    class="flex"
                     show-title="false"
                     code="{{_connectionsCode}}"
                     connections="[[connections]]"
@@ -121,7 +121,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
             <ft-document-panel
                     id="documentsPanel"
                     name="documents"
-                    style="width:100%; height:100%; "
+                    class="flex"
                     show-title="false"
                     show-grid-button="true"
                     show-list-button="true"
