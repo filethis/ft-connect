@@ -147,7 +147,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     version="[[interactionVersion]]"
                     request="[[_interactionRequest]]"
                     response="{{_interactionResponse}}"
-                    on-submit-response="_onSubmitInteractionResponse"
+                    on-submit-response-command="_onSubmitResponseCommand"
                     on-button-clicked="_onInteractionFormButtonClicked"
                     style="background:white; border:1px solid #DDD;">
             </ft-user-interaction-form>
@@ -189,7 +189,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
 
             listeners:
             {
-                'commit': '_onCommitLocal'
+                'create-connection-command': '_onCreateConnectionCommand'
             },
 
             properties: {
@@ -224,8 +224,6 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                 {
                     this._selectedPanelName = "sources";
                 });
-
-                this.codeTemplatePath = "../bower_components/ft-connect-tabbed/data/code-template.html";
             },
 
             _onRouteDataChanged: function(to, from)
@@ -256,7 +254,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     this.$.modalInteractionDialog.close();
             },
 
-            _onSubmitInteractionResponse: function(event)
+            _onSubmitResponseCommand: function(event)
             {
                 var interactionRequest = this._interactionRequest;
                 var interactionResponse = this._interactionResponse;
@@ -331,11 +329,9 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                 return this.poseNextPendingInteractionRequest();
             },
 
-            _onCommitLocal: function(event)
+            _onCreateConnectionCommand: function(event)
             {
-                var origin = event.path[0];
-                if (origin.id === "createConnectionDialog")
-                    this._selectedPanelName = "connections";  // TODO: Make this a configurable option?
+                this._selectedPanelName = "connections";  // TODO: Make this a configurable option?
             }
 
         });
