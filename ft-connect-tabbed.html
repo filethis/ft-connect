@@ -101,9 +101,8 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     id="sourcesPanel"
                     name="sources"
                     class="flex"
-                    show-title="false"
+                    show-heading="false"
                     selected-filter-id="{{selectedFilterId}}"
-                    code="{{_sourcesCode}}"
                     sources="[[sources]]">
             </ft-source-panel>
 
@@ -112,8 +111,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     id="connectionsPanel"
                     name="connections"
                     class="flex"
-                    show-title="false"
-                    code="{{_connectionsCode}}"
+                    show-heading="false"
                     connections="[[connections]]"
                     sources="[[sources]]">
             </ft-connection-panel>
@@ -123,7 +121,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     id="documentsPanel"
                     name="documents"
                     class="flex"
-                    show-title="false"
+                    show-heading="false"
                     show-grid-button="true"
                     show-list-button="true"
                     show-preview-button="false"
@@ -131,7 +129,6 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     show-download-button="false"
                     show-delete-button="true"
                     show-document-count="false"
-                    code="{{_documentsCode}}"
                     documents="[[documents]]">
             </ft-document-panel>
 
