@@ -1,0 +1,43 @@
+{
+  "name": "ft-connect-tabbed",
+  "description": "A drop-in HTML 5 element that quickly, securely, and flexibly integrates your application with the FileThis API.",
+  "main": "ft-connect-tabbed.html",
+  "dependencies": {
+    "app-route": "PolymerElements/app-route#1 - 2",
+    "ft-confirmation-dialog": "filethis/ft-confirmation-dialog#^0.0.20",
+    "ft-connect-behavior": "filethis/ft-connect-behavior#^0.0.17",
+    "ft-connection-panel": "filethis/ft-connection-panel#^0.0.24",
+    "ft-document-panel": "filethis/ft-document-panel#^0.0.27",
+    "ft-element-demo": "filethis/ft-element-demo#^0.0.11",
+    "ft-source-panel": "filethis/ft-source-panel#^0.0.26",
+    "ft-user-interaction-form": "filethis/ft-user-interaction-form#^0.0.29",
+    "iron-image": "PolymerElements/iron-image#1 - 2",
+    "log4javascript": "^1.4.9",
+    "paper-checkbox": "PolymerElements/paper-checkbox#1 - 2",
+    "paper-dialog": "PolymerElements/paper-dialog#1 - 2",
+    "paper-tabs": "PolymerElements/paper-tabs#1 - 2",
+    "polymer": "Polymer/polymer#1.9 - 2"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#1 - 2",
+    "iron-demo-helpers": "PolymerElements/iron-demo-helpers#1 - 2",
+    "iron-test-helpers": "PolymerElements/iron-test-helpers#1 - 2",
+    "web-component-tester": "Polymer/web-component-tester#^6.0.0",
+    "webcomponentsjs": "webcomponents/webcomponentsjs#^1.0.0"
+  },
+  "resolutions": {
+    "polymer": "1.9 - 2",
+    "webcomponentsjs": "^1.0.0"
+  },
+  "homepage": "https://github.com/filethis/ft-connect-tabbed",
+  "_release": "d2e16e8cb1",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "d2e16e8cb1ff002f0d2c96776c27264e542fcb78"
+  },
+  "_source": "https://github.com/filethis/ft-connect-tabbed.git",
+  "_target": "master",
+  "_originalSource": "filethis/ft-connect-tabbed",
+  "_direct": true
+}
