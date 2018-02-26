@@ -329,7 +329,43 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
             _onCreateConnectionCommand: function(event)
             {
                 this._selectedPanelName = "connections";  // TODO: Make this a configurable option?
-            }
+            },
+
+            pageCodeDropIn: "<!-- Put this at the top of your page -->\n" +
+            "<link rel=\"import\" href=\"http://connect.filethis.com/ft-connect-tabbed/v0.0.20/ft-connect-tabbed.html\">\n" +
+            "{{SETTINGS_IMPORTS}}\n" +
+            "<!-- Put this into the content of your page -->\n" +
+            "<{{NAME}}\n" +
+            "    user-account-id=\"{{ACCOUNT_ID}}\"\n" +
+            "    token=\"{{TOKEN}}\"\n" +
+            "    live=\"true\"\n" +
+            "    debug=\"true\"\n" +
+            "    fake-sources=\"true\">\n" +
+            "</{{NAME}}>\n" +
+            "{{SETTINGS_INITIALIZERS}}\n",
+
+            pageCodeCustom: "<!-- Put this at the top of your page -->\n" +
+            "<link rel=\"import\" href=\"../bower_components/{{NAME}}/{{NAME}}.html\">\n" +
+            "{{SETTINGS_IMPORTS}}\n" +
+            "<!-- Put this into the content of your page -->\n" +
+            "<{{NAME}}\n" +
+            "    user-account-id=\"{{ACCOUNT_ID}}\"\n" +
+            "    token=\"{{TOKEN}}\"\n" +
+            "    live=\"true\"\n" +
+            "    debug=\"true\"\n" +
+            "    fake-sources=\"true\">\n" +
+            "</{{NAME}}>\n" +
+            "{{SETTINGS_INITIALIZERS}}\n",
+
+            getPageCodeTemplate: function(isDropIn)
+            {
+                var pageCodeTemplate;
+                if (isDropIn)  // Drop-In
+                    pageCodeTemplate = this.pageCodeDropIn;
+                else // Local
+                    pageCodeTemplate = this.pageCodeCustom;
+                return pageCodeTemplate;
+            },
 
         });
     </script>
