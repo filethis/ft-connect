@@ -45,8 +45,8 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
 
         <style>
             :host {
-                display:block;
-                overflow:hidden;
+                display: block;
+                overflow: hidden;
                 @apply --layout-vertical;
                 @apply --ft-connect-tabbed;
             }
@@ -56,8 +56,8 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
 
             /* We use links in our tab bar so that routing will work, but want the text to look "normal" */
             a {
-                color:black;
-                border:none;
+                color: black;
+                border: none;
                 text-decoration:none;
                 height: auto !important;
             }
@@ -137,7 +137,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
         <!-- User interaction dialog -->
         <paper-dialog modal id="modalInteractionDialog"
                       style="width:450px;
-                      padding-left:40px; padding-top:12px; padding-right:40px; padding-bottom:5px;">
+                      padding-left: 40px; padding-top: 12px; padding-right: 40px; padding-bottom: 5px;">
 
             <ft-user-interaction-form
                     id="interactionForm"
@@ -146,7 +146,7 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
                     response="{{_interactionResponse}}"
                     on-submit-response-command="_onSubmitResponseCommand"
                     on-button-clicked="_onInteractionFormButtonClicked"
-                    style="background:white; border:1px solid #DDD;">
+                    style="background:white; border: 1px solid #DDD;">
             </ft-user-interaction-form>
 
         </paper-dialog>
