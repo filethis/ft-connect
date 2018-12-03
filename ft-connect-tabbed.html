@@ -29,6 +29,8 @@ limitations under the License.
 <link rel="import" href="../paper-tabs/paper-tabs.html">
 <link rel="import" href="../paper-tabs/paper-tab.html">
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../polymer/lib/elements/custom-style.html">
+<link rel="import" href="../shadycss/apply-shim.html">
 
 <!--
 `<ft-connect-tabbed>`
@@ -52,22 +54,22 @@ An element that implements a FileThis user workflow as a set of tabbed panels. A
             }
         </style>
 
-        <style is="custom-style">
+        <custom-style>
+            <style>
+                /* We use links in our tab bar so that routing will work, but want the text to look "normal" */
+                a {
+                    color: black;
+                    border: none;
+                    text-decoration:none;
+                    height: auto !important;
+                }
 
-            /* We use links in our tab bar so that routing will work, but want the text to look "normal" */
-            a {
-                color: black;
-                border: none;
-                text-decoration:none;
-                height: auto !important;
-            }
-
-            #panelTabs
-            {
-                --paper-tabs-selection-bar-color:blue;
-            }
-
-        </style>
+                #panelTabs
+                {
+                    --paper-tabs-selection-bar-color:blue;
+                }
+            </style>
+        </custom-style>
 
         <app-route
             route="{{route}}"
