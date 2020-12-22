@@ -1,7 +1,7 @@
 {
   "description": "A drop-in HTML 5 element that quickly, securely, and flexibly integrates your application with the FileThis API.",
   "name": "@filethis/ft-connect-tabbed",
-  "version": "1.0.24",
+  "version": "3.0.0",
   "resolutions": {
     "inherits": "2.0.3",
     "samsam": "1.1.3",
